@@ -83,8 +83,15 @@ Article content mentioning Apple Inc. and Microsoft Corporation...
 
 ## Output Format
 
+### File Naming Convention
+Output files use timestamped filenames to prevent overwriting previous results:
+- **Main results**: `company_mentions_YYYYMMDD_HHMMSS.csv`
+- **Summary stats**: `summary_stats_YYYYMMDD_HHMMSS.csv`
+
+Example: `company_mentions_20240115_143052.csv` (generated on Jan 15, 2024 at 2:30:52 PM)
+
 ### Main Results CSV
-The primary output file (`company_mentions.csv`) contains:
+The primary output file contains:
 
 | Column | Description |
 |--------|-------------|
@@ -94,7 +101,7 @@ The primary output file (`company_mentions.csv`) contains:
 | Description | Brief description (≤300 chars) of company's role |
 
 ### Summary Statistics CSV
-Additional file (`summary_stats.csv`) with:
+Additional file with:
 - Total articles processed
 - Articles with company mentions
 - Total company mentions found

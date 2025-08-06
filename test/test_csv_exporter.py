@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from src.claude_analyzer import ArticleAnalysis, CompanyMention
 from src.csv_exporter import CSVExporter
+from src.config import get_timestamped_filename
 
 
 class TestCSVExporter:
@@ -255,3 +256,74 @@ class TestCSVExporter:
                 assert False, "Should have raised ValueError"
             except ValueError as e:
                 assert "Failed to export CSV" in str(e)
+
+    def test_timestamped_filename_generation(self) -> None:
+        """Test that timestamped filenames are generated correctly."""
+        import re
+        
+        # Test the get_timestamped_filename function
+        filename = get_timestamped_filename("company_mentions")
+        
+        # Should match pattern: company_mentions_YYYYMMDD_HHMMSS.csv
+        pattern = r"company_mentions_\d{8}_\d{6}\.csv"
+        assert re.match(pattern, filename), f"Filename {filename} doesn't match expected pattern"
+        
+        # Test with custom extension
+        filename_json = get_timestamped_filename("summary", "json")
+        pattern_json = r"summary_\d{8}_\d{6}\.json"
+        assert re.match(pattern_json, filename_json), f"Filename {filename_json} doesn't match expected pattern"
+
+    def test_export_results_with_timestamped_filename(self) -> None:
+        """Test exporting results with automatic timestamped filename."""
+        analyses = [
+            ArticleAnalysis(
+                article_title="Test Article",
+                publication_source="Test Source",
+                publication_date="2024-01-15",
+                company_mentions=[
+                    CompanyMention(
+                        company_name="Test Company",
+                        description="Test description"
+                    )
+                ]
+            )
+        ]
+        
+        # Export without specifying filename (should use timestamped)
+        output_path = self.exporter.export_results(analyses)
+        
+        # Verify file was created and has timestamped name
+        assert output_path.exists()
+        assert "company_mentions_" in output_path.name
+        assert output_path.suffix == ".csv"
+        
+        # Verify content is correct
+        with open(output_path, "r", newline="", encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+            assert len(rows) == 1
+            assert rows[0]["Company/Organization Name"] == "Test Company"
+
+    def test_export_summary_stats_with_timestamped_filename(self) -> None:
+        """Test exporting summary stats with automatic timestamped filename."""
+        analyses = [
+            ArticleAnalysis(
+                article_title="Test Article",
+                publication_source="Test Source", 
+                publication_date="2024-01-15",
+                company_mentions=[
+                    CompanyMention(
+                        company_name="Test Company",
+                        description="Test description"
+                    )
+                ]
+            )
+        ]
+        
+        # Export without specifying filename (should use timestamped)
+        output_path = self.exporter.export_summary_stats(analyses)
+        
+        # Verify file was created and has timestamped name
+        assert output_path.exists()
+        assert "summary_stats_" in output_path.name
+        assert output_path.suffix == ".csv"

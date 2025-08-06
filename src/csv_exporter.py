@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from .claude_analyzer import ArticleAnalysis
-from .config import DEFAULT_CSV_FILENAME, DEFAULT_SUMMARY_FILENAME
+from .config import DEFAULT_CSV_FILENAME, DEFAULT_SUMMARY_FILENAME, get_timestamped_filename
 
 
 class CSVExporter:
@@ -21,13 +21,13 @@ class CSVExporter:
         self.output_directory.mkdir(parents=True, exist_ok=True)
 
     def export_results(
-        self, analyses: List[ArticleAnalysis], filename: str = DEFAULT_CSV_FILENAME
+        self, analyses: List[ArticleAnalysis], filename: str = None
     ) -> Path:
         """Export analysis results to CSV file.
 
         Args:
             analyses: List of article analyses to export
-            filename: Name of the output CSV file
+            filename: Name of the output CSV file (if None, generates timestamped filename)
 
         Returns:
             Path to the created CSV file
@@ -35,6 +35,8 @@ class CSVExporter:
         Raises:
             ValueError: If export fails
         """
+        if filename is None:
+            filename = get_timestamped_filename("company_mentions")
         output_path = self.output_directory / filename
 
         try:
@@ -90,17 +92,19 @@ class CSVExporter:
         return f'"{publication_source}", "{article_title}"'
 
     def export_summary_stats(
-        self, analyses: List[ArticleAnalysis], filename: str = DEFAULT_SUMMARY_FILENAME
+        self, analyses: List[ArticleAnalysis], filename: str = None
     ) -> Path:
         """Export summary statistics to CSV file.
 
         Args:
             analyses: List of article analyses
-            filename: Name of the summary CSV file
+            filename: Name of the summary CSV file (if None, generates timestamped filename)
 
         Returns:
             Path to the created summary CSV file
         """
+        if filename is None:
+            filename = get_timestamped_filename("summary_stats")
         output_path = self.output_directory / filename
 
         # Calculate statistics
