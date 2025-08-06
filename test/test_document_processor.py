@@ -71,10 +71,12 @@ class TestDocumentProcessor:
     def test_extract_source_various_patterns(self) -> None:
         """Test source extraction with various patterns."""
         test_cases = [
-            ("The Wall Street Journal - Company Reports", "The Wall Street Journal"),
+            ("The Miami Herald - Company Reports", "The Miami Herald"),
             ("Source: Reuters News Service", "Reuters News Service"),
             ("Publication: Financial Times", "Financial Times"),
-            ("CNN Business: Tech stocks rise", "CNN Business"),
+            ("Copyright 2024 The Miami Herald", "The Miami Herald"),
+            ("Miami Herald", "Miami Herald"),
+            ("The Wall Street Journal", "The Wall Street Journal"),
             ("Regular text without source", None),
         ]
         
@@ -88,6 +90,8 @@ class TestDocumentProcessor:
             ("Published on 2024-01-15", "2024-01-15"),
             ("Date: January 15, 2024", "2024-01-15"),
             ("March 2024 report", "2024-03-01"),
+            ("Published: 1/15/2024", "2024-01-15"),
+            ("Load-Date: January 15, 2024", "2024-01-15"),
             ("Text without date", None),
         ]
         

@@ -183,3 +183,6 @@ claude.md
 # Data directory - ignore all files except README
 data/*
 !data/README.md
+
+# Test data directory
+testdata/

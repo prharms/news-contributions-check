@@ -137,7 +137,13 @@ Important guidelines:
 - Include all types of organizations: corporations, non-profits, government agencies, institutions, etc.
 - Keep descriptions factual and concise
 - If no companies or organizations are mentioned, return an empty array
-- Ensure the JSON is valid and properly formatted"""
+- Ensure the JSON is valid and properly formatted
+
+CRITICAL EXCLUSIONS:
+- NEVER include the news publication/newspaper name ("{article.source}") as a company mention
+- NEVER include other news media outlets as companies unless they are the actual subject of the story (not just cited as sources)
+- Do not include the author's name or byline information
+- Focus only on organizations that are subjects of the news story, not sources reporting it"""
 
     def _call_claude_api(self, prompt: str) -> str:
         """Call the Claude API with the given prompt.

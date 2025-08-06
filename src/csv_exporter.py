@@ -18,7 +18,7 @@ class CSVExporter:
             output_directory: Directory to save CSV files
         """
         self.output_directory = Path(output_directory)
-        self.output_directory.mkdir(exist_ok=True)
+        self.output_directory.mkdir(parents=True, exist_ok=True)
 
     def export_results(
         self, analyses: List[ArticleAnalysis], filename: str = DEFAULT_CSV_FILENAME

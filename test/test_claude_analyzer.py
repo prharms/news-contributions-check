@@ -26,8 +26,12 @@ class TestClaudeAnalyzer:
             mock_anthropic.assert_called_once_with(api_key='provided-key')
 
     @patch.dict('os.environ', {}, clear=True)
-    def test_initialization_without_api_key(self) -> None:
+    @patch('src.claude_analyzer.load_dotenv')
+    @patch('src.claude_analyzer.anthropic.Anthropic')
+    def test_initialization_without_api_key(self, mock_anthropic: Mock, mock_load_dotenv: Mock) -> None:
         """Test analyzer initialization without API key raises error."""
+        # Mock load_dotenv to not load anything
+        mock_load_dotenv.return_value = None
         with pytest.raises(ValueError, match="Anthropic API key is required"):
             ClaudeAnalyzer()
 

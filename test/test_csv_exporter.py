@@ -3,6 +3,7 @@
 import csv
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from src.claude_analyzer import ArticleAnalysis, CompanyMention
 from src.csv_exporter import CSVExporter
@@ -193,7 +194,7 @@ class TestCSVExporter:
             rows = list(reader)
             
             # Check summary statistics
-            summary_section = rows[:6]  # First 6 rows are summary
+            summary_section = rows[:5]  # First 5 rows are summary
             
             assert summary_section[0] == ["Summary Statistics"]
             assert summary_section[1] == ["Total Articles Processed", "3"]
@@ -202,7 +203,7 @@ class TestCSVExporter:
             assert summary_section[4] == ["Unique Companies Mentioned", "2"]  # Apple and Microsoft
             
             # Check publication breakdown
-            publication_section = rows[7:]  # After empty row and header
+            publication_section = rows[6:]  # After empty row
             assert publication_section[0] == ["Publication Breakdown"]
             assert publication_section[1] == ["Publication", "Articles", "Total Mentions"]
             
@@ -235,9 +236,8 @@ class TestCSVExporter:
 
     def test_export_results_failure_handling(self) -> None:
         """Test export failure handling."""
-        # Create exporter with invalid directory
-        invalid_path = Path("/invalid/directory/that/does/not/exist")
-        exporter = CSVExporter(invalid_path)
+        # Create exporter with valid directory but cause export failure
+        exporter = CSVExporter(self.temp_dir)
         
         analyses = [
             ArticleAnalysis(
@@ -248,8 +248,10 @@ class TestCSVExporter:
             )
         ]
 
-        try:
-            exporter.export_results(analyses)
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert "Failed to export CSV" in str(e)
+        # Mock open() to raise an exception
+        with patch('builtins.open', side_effect=PermissionError("Access denied")):
+            try:
+                exporter.export_results(analyses)
+                assert False, "Should have raised ValueError"
+            except ValueError as e:
+                assert "Failed to export CSV" in str(e)

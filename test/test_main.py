@@ -107,6 +107,7 @@ class TestMain:
         # Mock document processor returning no articles
         mock_doc_processor = Mock()
         mock_doc_processor.process_all_files.return_value = []
+        mock_doc_processor.find_docx_files.return_value = []
         mock_document_processor.return_value = mock_doc_processor
 
         # Run main function

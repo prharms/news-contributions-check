@@ -87,10 +87,10 @@ class DocumentProcessor:
             if not text:
                 continue
 
-            # Check if this is a heading (potential article separator)
-            if self._is_heading(paragraph):
+            # Check if this is "End of Document" - indicates article boundary
+            if text.lower() == "end of document":
                 # Save previous article if we have content
-                if current_article_parts:
+                if current_article_parts and current_title:
                     article = self._create_article(
                         current_title,
                         current_source,
@@ -100,21 +100,27 @@ class DocumentProcessor:
                     if article:
                         articles.append(article)
 
-                # Start new article
+                # Reset for new article
                 current_article_parts = []
-                current_title = text
+                current_title = ""
                 current_source = ""
                 current_date = ""
+                continue
+
+            # Try to extract metadata first
+            source_match = self._extract_source(text)
+            if source_match:
+                current_source = source_match
+
+            date_match = self._extract_date(text)
+            if date_match:
+                current_date = date_match
+
+            # Check if this is a heading (potential article title)
+            if self._is_heading(paragraph) and not current_title:
+                current_title = text
             else:
-                # Try to extract metadata from the paragraph
-                source_match = self._extract_source(text)
-                if source_match:
-                    current_source = source_match
-
-                date_match = self._extract_date(text)
-                if date_match:
-                    current_date = date_match
-
+                # Add all content to article parts (including metadata lines)
                 current_article_parts.append(text)
 
         # Don't forget the last article
@@ -136,19 +142,45 @@ class DocumentProcessor:
         Returns:
             True if the paragraph appears to be a heading
         """
+        text = paragraph.text.strip()
+        
+        # Skip empty paragraphs
+        if not text:
+            return False
+        
+        # Skip obvious non-title content
+        if any(skip_phrase in text.lower() for skip_phrase in [
+            "byline:", "copyright", "end of document", "source:", "publication:",
+            "dateline:", "length:", "word count:", "load-date:", "language:"
+        ]):
+            return False
+        
         # Check for heading styles
         if paragraph.style and "heading" in paragraph.style.name.lower():
             return True
 
-        # Check for bold formatting and short length
+        # Check for bold formatting and appropriate length for titles
         if paragraph.runs:
             first_run = paragraph.runs[0]
             if (
                 first_run.bold
-                and len(paragraph.text.strip()) < 200
-                and len(paragraph.text.strip()) > 10
+                and 10 <= len(text) <= 200
+                and not text.startswith(("By ", "From ", "Published ", "Updated "))
             ):
                 return True
+
+        # Check for title-like characteristics
+        if (
+            # Reasonable title length
+            10 <= len(text) <= 150
+            # Doesn't start with common article body patterns
+            and not text.startswith(("The ", "A ", "An ", "In ", "On ", "At ", "By ", "From "))
+            # Doesn't end with common non-title patterns
+            and not text.endswith((":", ";", ","))
+            # Contains capitalized words (title case)
+            and sum(1 for word in text.split() if word and word[0].isupper()) >= 2
+        ):
+            return True
 
         return False
 
@@ -161,12 +193,21 @@ class DocumentProcessor:
         Returns:
             Publication source if found, None otherwise
         """
-        # Common patterns for source identification
+        # Common patterns for source identification in news documents
         source_patterns = [
-            r"^([A-Z][a-zA-Z\s&]+(?:News|Times|Post|Journal|Tribune|Herald|Globe|Daily|Weekly|Magazine|Review|Report|Wire|Press|Today|Business|Financial|Economic|Market|Trade|Industry|Technology|Tech|Online|Digital|Network|Media|Broadcasting|Television|TV|Radio|Reuters|Bloomberg|Associated Press|AP|CNN|BBC|NPR|Wall Street|Financial Times|FT|USA Today|Washington Post|New York Times|NYT|Guardian|Independent|Telegraph|Observer|Mirror|Express|Mail|Sun|Star|Chronicle|Gazette|Bulletin|Record|Leader|Sentinel|Register|Examiner|Standard|Voice|View|Opinion|Commentary|Analysis|Insight|Focus|Special|Update|Alert|Briefing|Summary|Overview|Spotlight|Feature|Profile|Interview|Investigation|Exclusive|Breaking|Latest|Current|Live|Now|Today|This Week|This Month|This Year)):",
+            # Copyright notices
+            r"Copyright\s+\d{4}[^\n\r]*?([A-Z][a-zA-Z\s&.]+(?:News|Times|Post|Journal|Tribune|Herald|Globe|Daily|Weekly|Magazine|Review|Report|Wire|Press|Today|Business|Financial|Economic|Market|Trade|Industry|Technology|Tech|Online|Digital|Network|Media|Broadcasting|Television|TV|Radio|Reuters|Bloomberg|Associated Press|AP|CNN|BBC|NPR|Wall Street|Financial Times|FT|Chronicle|Gazette|Bulletin|Record|Examiner|Standard))",
+            # Simple publication names at start of line
+            r"^(The\s+[A-Z][a-zA-Z\s]+(?:Herald|Times|Post|Journal|Tribune|Globe|Daily|News|Weekly|Magazine|Review|Report|Wire|Press|Today|Business|Chronicle|Gazette|Bulletin|Record|Examiner|Standard))",
+            # Publication names without "The"
+            r"^([A-Z][a-zA-Z\s]+(?:Herald|Times|Post|Journal|Tribune|Globe|Daily|News|Weekly|Magazine|Review|Report|Wire|Press|Today|Business|Chronicle|Gazette|Bulletin|Record|Examiner|Standard))",
+            # Explicit source labels
             r"Source:\s*([^\n\r]+)",
             r"Publication:\s*([^\n\r]+)",
-            r"^([A-Z][a-zA-Z\s&]+ - )",
+            # Publication with dash separator
+            r"^([A-Z][a-zA-Z\s&]+(?:Herald|Times|Post|Journal|Tribune|Globe|Daily|News)) -",
+            # Common major news outlets
+            r"\b(Reuters|Bloomberg|Associated Press|AP News|CNN|BBC|NPR|Wall Street Journal|Financial Times|USA Today|Washington Post|New York Times|Miami Herald|Sun Sentinel)\b",
         ]
 
         for pattern in source_patterns:
@@ -185,14 +226,22 @@ class DocumentProcessor:
         Returns:
             Normalized date in YYYY-MM-DD format if found, None otherwise
         """
-        # Date patterns to match various formats
+        # Date patterns to match various formats in news documents
         date_patterns = [
+            # Standard formats
             r"(\d{4}-\d{2}-\d{2})",  # YYYY-MM-DD
             r"(\d{1,2}/\d{1,2}/\d{4})",  # MM/DD/YYYY or M/D/YYYY
             r"(\d{1,2}-\d{1,2}-\d{4})",  # MM-DD-YYYY or M-D-YYYY
+            # Publication date formats
+            r"Published:\s*(\d{1,2}/\d{1,2}/\d{4})",  # Published: MM/DD/YYYY
+            r"Published:\s*((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})",
+            r"Load-Date:\s*(\d{1,2}/\d{1,2}/\d{4})",  # Load-Date: MM/DD/YYYY
+            r"Load-Date:\s*((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})",
+            # Full month names
             r"((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})",  # Month DD, YYYY
             r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4})",  # Mon DD, YYYY
             r"(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})",  # DD Month YYYY
+            # Year and month only
             r"((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})",  # Month YYYY
             r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4})",  # Mon YYYY
             r"(\d{4})",  # YYYY only
