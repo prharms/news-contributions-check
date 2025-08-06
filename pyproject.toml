@@ -27,6 +27,12 @@ dependencies = [
     "pydantic>=2.7.0",
 ]
 
+[project.scripts]
+analyze = "news_contribution_check.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["news_contribution_check*"]
+
 [project.optional-dependencies]
 dev = [
     "black==23.12.1",
@@ -85,10 +91,10 @@ testpaths = ["test"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=src --cov-report=html --cov-report=term-missing --cov-report=xml"
+addopts = "--cov=news_contribution_check --cov-report=html --cov-report=term-missing --cov-report=xml"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["news_contribution_check"]
 branch = true
 
 [tool.coverage.report]

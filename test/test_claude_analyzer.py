@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.claude_analyzer import ArticleAnalysis, ClaudeAnalyzer, CompanyMention
-from src.document_processor import Article
+from news_contribution_check.claude_analyzer import ArticleAnalysis, ClaudeAnalyzer, CompanyMention
+from news_contribution_check.document_processor import Article
 
 
 class TestClaudeAnalyzer:
@@ -15,19 +15,19 @@ class TestClaudeAnalyzer:
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_initialization_with_env_var(self) -> None:
         """Test analyzer initialization with environment variable."""
-        with patch('src.claude_analyzer.anthropic.Anthropic') as mock_anthropic:
+        with patch('news_contribution_check.claude_analyzer.anthropic.Anthropic') as mock_anthropic:
             analyzer = ClaudeAnalyzer()
             mock_anthropic.assert_called_once_with(api_key='test-api-key')
 
     def test_initialization_with_api_key(self) -> None:
         """Test analyzer initialization with provided API key."""
-        with patch('src.claude_analyzer.anthropic.Anthropic') as mock_anthropic:
+        with patch('news_contribution_check.claude_analyzer.anthropic.Anthropic') as mock_anthropic:
             analyzer = ClaudeAnalyzer(api_key='provided-key')
             mock_anthropic.assert_called_once_with(api_key='provided-key')
 
     @patch.dict('os.environ', {}, clear=True)
-    @patch('src.claude_analyzer.load_dotenv')
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.load_dotenv')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_initialization_without_api_key(self, mock_anthropic: Mock, mock_load_dotenv: Mock) -> None:
         """Test analyzer initialization without API key raises error."""
         # Mock load_dotenv to not load anything
@@ -35,7 +35,7 @@ class TestClaudeAnalyzer:
         with pytest.raises(ValueError, match="Anthropic API key is required"):
             ClaudeAnalyzer()
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_create_analysis_prompt(self, mock_anthropic: Mock) -> None:
         """Test analysis prompt creation."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -57,7 +57,7 @@ class TestClaudeAnalyzer:
         assert "company_mentions" in prompt
         assert "JSON" in prompt
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_call_claude_api_success(self, mock_anthropic: Mock) -> None:
         """Test successful Claude API call."""
         mock_client = Mock()
@@ -72,7 +72,7 @@ class TestClaudeAnalyzer:
         assert response == '{"company_mentions": []}'
         mock_client.messages.create.assert_called_once()
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_call_claude_api_failure(self, mock_anthropic: Mock) -> None:
         """Test Claude API call failure."""
         mock_client = Mock()
@@ -84,7 +84,7 @@ class TestClaudeAnalyzer:
         with pytest.raises(Exception, match="Claude API call failed"):
             analyzer._call_claude_api("test prompt")
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_parse_response_success(self, mock_anthropic: Mock) -> None:
         """Test successful response parsing."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -122,7 +122,7 @@ class TestClaudeAnalyzer:
         assert analysis.company_mentions[0].company_name == "Apple Inc."
         assert analysis.company_mentions[1].company_name == "Microsoft Corporation"
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_parse_response_no_json(self, mock_anthropic: Mock) -> None:
         """Test response parsing with no JSON."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -140,7 +140,7 @@ class TestClaudeAnalyzer:
         with pytest.raises(ValueError, match="No JSON found in response"):
             analyzer._parse_response(article, response)
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_parse_response_invalid_json(self, mock_anthropic: Mock) -> None:
         """Test response parsing with invalid JSON."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -158,7 +158,7 @@ class TestClaudeAnalyzer:
         with pytest.raises(ValueError, match="Invalid JSON in response"):
             analyzer._parse_response(article, response)
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_parse_response_missing_company_mentions(self, mock_anthropic: Mock) -> None:
         """Test response parsing with missing company_mentions field."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -176,7 +176,7 @@ class TestClaudeAnalyzer:
         with pytest.raises(ValueError, match="Missing 'company_mentions' in response"):
             analyzer._parse_response(article, response)
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_parse_response_long_description(self, mock_anthropic: Mock) -> None:
         """Test response parsing with long description gets truncated."""
         analyzer = ClaudeAnalyzer(api_key='test-key')
@@ -204,7 +204,7 @@ class TestClaudeAnalyzer:
         assert len(analysis.company_mentions[0].description) == 300
         assert analysis.company_mentions[0].description.endswith("...")
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     @patch.object(ClaudeAnalyzer, '_call_claude_api')
     @patch.object(ClaudeAnalyzer, '_parse_response')
     def test_analyze_article_success(self, mock_parse: Mock, mock_call: Mock, mock_anthropic: Mock) -> None:
@@ -234,7 +234,7 @@ class TestClaudeAnalyzer:
         mock_call.assert_called_once()
         mock_parse.assert_called_once_with(article, "mock response")
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     @patch.object(ClaudeAnalyzer, 'analyze_article')
     def test_analyze_articles_success(self, mock_analyze: Mock, mock_anthropic: Mock) -> None:
         """Test successful multiple article analysis."""
@@ -258,7 +258,7 @@ class TestClaudeAnalyzer:
         assert results == mock_analyses
         assert mock_analyze.call_count == 2
 
-    @patch('src.claude_analyzer.anthropic.Anthropic')
+    @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     @patch.object(ClaudeAnalyzer, 'analyze_article')
     @patch('builtins.print')
     def test_analyze_articles_with_failure(self, mock_print: Mock, mock_analyze: Mock, mock_anthropic: Mock) -> None:

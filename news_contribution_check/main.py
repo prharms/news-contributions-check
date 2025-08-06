@@ -13,14 +13,12 @@ from .document_processor import DocumentProcessor
 def main(
     data_directory: str = DEFAULT_DATA_DIRECTORY,
     output_directory: str = DEFAULT_OUTPUT_DIRECTORY,
-    api_key: Optional[str] = None,
 ) -> None:
     """Main function to process news articles and extract company mentions.
 
     Args:
         data_directory: Directory containing .docx files
         output_directory: Directory to save results
-        api_key: Anthropic API key (optional, can use environment variable)
 
     Raises:
         SystemExit: If processing fails
@@ -41,7 +39,7 @@ def main(
         doc_processor = DocumentProcessor(data_path)
 
         print("Initializing Claude analyzer...")
-        claude_analyzer = ClaudeAnalyzer(api_key)
+        claude_analyzer = ClaudeAnalyzer()
 
         print(f"Initializing CSV exporter for directory: {output_directory}")
         
@@ -92,29 +90,6 @@ def main(
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Extract company mentions from news articles using Claude AI"
-    )
-    parser.add_argument(
-        "--data-dir",
-        default=DEFAULT_DATA_DIRECTORY,
-        help=f"Directory containing .docx files (default: {DEFAULT_DATA_DIRECTORY})",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=DEFAULT_OUTPUT_DIRECTORY,
-        help=f"Directory to save results (default: {DEFAULT_OUTPUT_DIRECTORY})",
-    )
-    parser.add_argument(
-        "--api-key", help="Anthropic API key (optional, can use ANTHROPIC_API_KEY env var)"
-    )
-
-    args = parser.parse_args()
-
-    main(
-        data_directory=args.data_dir,
-        output_directory=args.output_dir,
-        api_key=args.api_key,
-    )
+    # For direct execution, import and use CLI
+    from .cli import cli
+    cli()

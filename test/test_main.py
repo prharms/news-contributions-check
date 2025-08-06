@@ -6,9 +6,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.claude_analyzer import ArticleAnalysis, CompanyMention
-from src.document_processor import Article
-from src.main import main
+from news_contribution_check.claude_analyzer import ArticleAnalysis, CompanyMention
+from news_contribution_check.document_processor import Article
+from news_contribution_check.main import main
 
 
 class TestMain:
@@ -25,9 +25,9 @@ class TestMain:
         shutil.rmtree(self.temp_data_dir)
         shutil.rmtree(self.temp_output_dir)
 
-    @patch('src.main.DocumentProcessor')
-    @patch('src.main.ClaudeAnalyzer')
-    @patch('src.main.CSVExporter')
+    @patch('news_contribution_check.main.DocumentProcessor')
+    @patch('news_contribution_check.main.ClaudeAnalyzer')
+    @patch('news_contribution_check.main.CSVExporter')
     @patch('builtins.print')
     def test_main_success(
         self,
@@ -76,13 +76,12 @@ class TestMain:
         # Run main function
         main(
             data_directory=str(self.temp_data_dir),
-            output_directory=str(self.temp_output_dir),
-            api_key="test-key"
+            output_directory=str(self.temp_output_dir)
         )
 
         # Verify calls
         mock_document_processor.assert_called_once_with(self.temp_data_dir)
-        mock_claude_analyzer.assert_called_once_with("test-key")
+        mock_claude_analyzer.assert_called_once_with()
         mock_csv_exporter.assert_called_once_with(self.temp_output_dir)
 
         mock_doc_processor.process_all_files.assert_called_once()
@@ -96,7 +95,7 @@ class TestMain:
         assert any("Total articles processed: 1" in call for call in print_calls)
         assert any("Total company mentions found: 1" in call for call in print_calls)
 
-    @patch('src.main.DocumentProcessor')
+    @patch('news_contribution_check.main.DocumentProcessor')
     @patch('builtins.print')
     def test_main_no_articles(
         self,
@@ -113,15 +112,14 @@ class TestMain:
         # Run main function
         main(
             data_directory=str(self.temp_data_dir),
-            output_directory=str(self.temp_output_dir),
-            api_key="test-key"
+            output_directory=str(self.temp_output_dir)
         )
 
         # Verify that function returns early with no articles message
         print_calls = [call[0][0] for call in mock_print.call_args_list]
         assert any("No articles found. Exiting." in call for call in print_calls)
 
-    @patch('src.main.DocumentProcessor')
+    @patch('news_contribution_check.main.DocumentProcessor')
     @patch('builtins.print')
     def test_main_document_processor_failure(
         self,
@@ -138,16 +136,15 @@ class TestMain:
         with pytest.raises(SystemExit):
             main(
                 data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir),
-                api_key="test-key"
+                output_directory=str(self.temp_output_dir)
             )
 
         # Check error message was printed
         print_calls = [call[0][0] for call in mock_print.call_args_list]
         assert any("Error during processing: Document processing failed" in call for call in print_calls)
 
-    @patch('src.main.DocumentProcessor')
-    @patch('src.main.ClaudeAnalyzer')
+    @patch('news_contribution_check.main.DocumentProcessor')
+    @patch('news_contribution_check.main.ClaudeAnalyzer')
     @patch('builtins.print')
     def test_main_claude_analyzer_failure(
         self,
@@ -180,17 +177,16 @@ class TestMain:
         with pytest.raises(SystemExit):
             main(
                 data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir),
-                api_key="test-key"
+                output_directory=str(self.temp_output_dir)
             )
 
         # Check error message was printed
         print_calls = [call[0][0] for call in mock_print.call_args_list]
         assert any("Error during processing: Claude analysis failed" in call for call in print_calls)
 
-    @patch('src.main.DocumentProcessor')
-    @patch('src.main.ClaudeAnalyzer')
-    @patch('src.main.CSVExporter')
+    @patch('news_contribution_check.main.DocumentProcessor')
+    @patch('news_contribution_check.main.ClaudeAnalyzer')
+    @patch('news_contribution_check.main.CSVExporter')
     @patch('builtins.print')
     def test_main_csv_exporter_failure(
         self,
@@ -237,17 +233,16 @@ class TestMain:
         with pytest.raises(SystemExit):
             main(
                 data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir),
-                api_key="test-key"
+                output_directory=str(self.temp_output_dir)
             )
 
         # Check error message was printed
         print_calls = [call[0][0] for call in mock_print.call_args_list]
         assert any("Error during processing: CSV export failed" in call for call in print_calls)
 
-    @patch('src.main.DocumentProcessor')
-    @patch('src.main.ClaudeAnalyzer')
-    @patch('src.main.CSVExporter')
+    @patch('news_contribution_check.main.DocumentProcessor')
+    @patch('news_contribution_check.main.ClaudeAnalyzer')
+    @patch('news_contribution_check.main.CSVExporter')
     @patch('builtins.print')
     def test_main_with_default_parameters(
         self,
@@ -294,5 +289,5 @@ class TestMain:
 
         # Verify default parameters were used
         mock_document_processor.assert_called_once_with(Path("data"))
-        mock_claude_analyzer.assert_called_once_with(None)  # Uses env var
+        mock_claude_analyzer.assert_called_once_with()  # Uses env var
         mock_csv_exporter.assert_called_once_with(Path("output"))

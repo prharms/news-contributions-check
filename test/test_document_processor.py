@@ -8,7 +8,7 @@ import pytest
 from docx import Document
 from docx.shared import Inches
 
-from src.document_processor import Article, DocumentProcessor
+from news_contribution_check.document_processor import Article, DocumentProcessor
 
 
 class TestDocumentProcessor:
@@ -132,7 +132,7 @@ class TestDocumentProcessor:
         with pytest.raises(ValueError, match="No .docx files found"):
             self.processor.process_all_files()
 
-    @patch('src.document_processor.Document')
+    @patch('news_contribution_check.document_processor.Document')
     def test_extract_articles_from_file_success(self, mock_document: Mock) -> None:
         """Test successful article extraction from file."""
         # Create a test file

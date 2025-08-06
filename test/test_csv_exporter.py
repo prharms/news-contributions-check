@@ -5,9 +5,9 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from src.claude_analyzer import ArticleAnalysis, CompanyMention
-from src.csv_exporter import CSVExporter
-from src.config import get_timestamped_filename
+from news_contribution_check.claude_analyzer import ArticleAnalysis, CompanyMention
+from news_contribution_check.csv_exporter import CSVExporter
+from news_contribution_check.config import get_timestamped_filename
 
 
 class TestCSVExporter:

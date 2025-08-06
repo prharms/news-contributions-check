@@ -30,6 +30,8 @@ cd news_contribution_check
 pip install -e .
 ```
 
+   This will install the package and create the `analyze` console command.
+
 3. Install development dependencies (optional):
 ```bash
 pip install -e ".[dev]"
@@ -49,21 +51,27 @@ pip install -e ".[dev]"
 1. Place your .docx files in the `data/` directory
 2. Run the analysis:
 ```bash
-python run_analysis.py
+analyze
 ```
 
 ### Advanced Usage
 
 Run with custom parameters:
 ```bash
-python -m src.main --data-dir /path/to/docx/files --output-dir /path/to/output --api-key your_api_key
+analyze --data-dir /path/to/docx/files --output-dir /path/to/output
+```
+
+You can also run as a Python module:
+```bash
+python -m news_contribution_check.main
 ```
 
 ### Command Line Options
 
 - `--data-dir`: Directory containing .docx files (default: `data`)
 - `--output-dir`: Directory to save results (default: `output`)
-- `--api-key`: Anthropic API key (optional if set in environment)
+
+**Note**: The Anthropic API key must be set in your `.env` file for security reasons.
 
 ## Input Format
 
@@ -124,16 +132,19 @@ Missing date components are filled with "01" as specified.
 ### Project Structure
 ```
 news_contribution_check/
-├── src/                     # Source code
-│   ├── document_processor.py   # .docx file processing
-│   ├── claude_analyzer.py      # Claude AI integration
-│   ├── csv_exporter.py         # CSV output generation
-│   └── main.py                 # Main application logic
-├── test/                    # Test suite
-├── data/                    # Input .docx files
-├── output/                  # Generated reports
-├── pyproject.toml          # Project configuration
-├── .cursor-rules/          # Project rules and guidelines
+├── news_contribution_check/     # Main package
+│   ├── __init__.py
+│   ├── main.py                  # Core business logic
+│   ├── cli.py                   # Command-line interface
+│   ├── document_processor.py    # .docx file processing
+│   ├── claude_analyzer.py       # Claude AI integration
+│   ├── csv_exporter.py          # CSV output generation
+│   └── config.py                # Configuration settings
+├── test/                        # Test suite
+├── data/                        # Input .docx files
+├── output/                      # Generated reports
+├── pyproject.toml               # Project configuration
+├── .cursor-rules/               # Project rules and guidelines
 └── README.md
 ```
 
@@ -188,7 +199,7 @@ pre-commit install
 
 ### Configuration
 
-The application settings are centralized in `src/config.py`:
+The application settings are centralized in `news_contribution_check/config.py`:
 
 #### API Settings
 - Model: `claude-sonnet-4-20250514` (Claude 4 Sonnet)
@@ -200,7 +211,7 @@ The application settings are centralized in `src/config.py`:
 - Default data directory: `data/`
 - Default output directory: `output/`
 
-To change the Claude model or other settings, edit the values in `src/config.py`.
+To change the Claude model or other settings, edit the values in `news_contribution_check/config.py`.
 
 ## Error Handling
 

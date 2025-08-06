@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from unittest.mock import patch
 
-from src.config import get_timestamped_filename
+from news_contribution_check.config import get_timestamped_filename
 
 
 class TestConfig:
@@ -31,7 +31,7 @@ class TestConfig:
         # Mock datetime.now() to return a specific time
         mock_datetime = datetime(2024, 1, 15, 14, 30, 45)
         
-        with patch('src.config.datetime') as mock_dt:
+        with patch('news_contribution_check.config.datetime') as mock_dt:
             mock_dt.now.return_value = mock_datetime
             filename = get_timestamped_filename("report")
             
