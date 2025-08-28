@@ -52,17 +52,8 @@ class CSVExporter:
                         analysis.publication_source, analysis.article_title
                     )
 
-                    if not analysis.company_mentions:
-                        # Write a row even if no companies were found
-                        writer.writerow(
-                            {
-                                "Citations": citation,
-                                "Date": analysis.publication_date,
-                                "Company/Organization Name": "",
-                                "Description": "No companies or organizations mentioned",
-                            }
-                        )
-                    else:
+                    # Only write rows for articles that have company mentions
+                    if analysis.company_mentions:
                         for mention in analysis.company_mentions:
                             writer.writerow(
                                 {

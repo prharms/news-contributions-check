@@ -115,11 +115,8 @@ class TestCSVExporter:
             reader = csv.DictReader(csvfile)
             rows = list(reader)
             
-            assert len(rows) == 1
-            assert rows[0]["Citations"] == '"Weather Channel", "Weather Update"'
-            assert rows[0]["Date"] == "2024-01-15"
-            assert rows[0]["Company/Organization Name"] == ""
-            assert "No companies or organizations mentioned" in rows[0]["Description"]
+            # Should have no rows since no companies were mentioned
+            assert len(rows) == 0
 
     def test_export_results_mixed_mentions(self) -> None:
         """Test exporting results with mixed mention patterns."""
@@ -149,15 +146,12 @@ class TestCSVExporter:
             reader = csv.DictReader(csvfile)
             rows = list(reader)
             
-            assert len(rows) == 2
+            # Should only have 1 row (for the article with mentions)
+            assert len(rows) == 1
             
             # First article with mention
             assert rows[0]["Company/Organization Name"] == "Google LLC"
             assert "Search engine" in rows[0]["Description"]
-            
-            # Second article without mentions
-            assert rows[1]["Company/Organization Name"] == ""
-            assert "No companies or organizations mentioned" in rows[1]["Description"]
 
     def test_export_summary_stats(self) -> None:
         """Test exporting summary statistics."""
