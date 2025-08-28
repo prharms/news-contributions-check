@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from .config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CLAUDE_TEMPERATURE, MAX_DESCRIPTION_LENGTH
+from .exceptions import ClaudeAPIError
 from .document_processor import Article
 
 
@@ -110,7 +111,9 @@ class ClaudeAnalyzer:
         Returns:
             Formatted prompt string
         """
-        return f"""Please analyze the following news article and identify all companies and organizations explicitly mentioned by name. For each company or organization found, provide:
+        return f"""You are acting as a forensic document analyst. Your responses must meet the standards to be included as documentary evidence in litigation. Zero creativity is allowed. You must be precise, accurate, and strictly follow the guidelines below.
+
+Please analyze the following news article and identify all companies and organizations explicitly mentioned by name. For each company or organization found, provide:
 
 1. The exact company/organization name as mentioned in the article
 2. A brief description (maximum 300 characters) of how the company or organization is involved or mentioned in the article
@@ -120,6 +123,16 @@ Title: {article.title}
 Source: {article.source}
 Date: {article.date}
 Content: {article.content}
+
+MANDATORY CHECKLIST - Before returning any value as a company/organization name, you MUST verify that the entity is:
+(A) NOT A CITY
+(B) NOT A COUNTY  
+(C) NOT A STATE
+(D) NOT THE FEDERAL GOVERNMENT
+(E) NOT THE NAME OF A NEWSPAPER
+(F) NOT THE NAME OF OTHER NEWS MEDIA
+
+If ANY of these conditions are true, DO NOT include the entity as a company/organization name.
 
 Please respond with a JSON object in this exact format:
 {{
@@ -134,16 +147,18 @@ Please respond with a JSON object in this exact format:
 Important guidelines:
 - Only include companies and organizations that are explicitly named in the article
 - Do not include generic terms like "the company" or "the organization" unless they are proper names
-- Include all types of organizations: corporations, non-profits, government agencies, institutions, etc.
 - Keep descriptions factual and concise
 - If no companies or organizations are mentioned, return an empty array
 - Ensure the JSON is valid and properly formatted
 
-CRITICAL EXCLUSIONS:
-- NEVER include the news publication/newspaper name ("{article.source}") as a company mention
-- NEVER include other news media outlets as companies unless they are the actual subject of the story (not just cited as sources)
-- Do not include the author's name or byline information
-- Focus only on organizations that are subjects of the news story, not sources reporting it"""
+CRITICAL EXCLUSIONS - NEVER include:
+- The news publication/newspaper name ("{article.source}") as a company mention
+- Other news media outlets as companies unless they are the actual subject of the story (not just cited as sources)
+- The author's name or byline information
+- Any government entities (cities, counties, states, federal agencies)
+- Focus only on private sector organizations that are subjects of the news story, not sources reporting it
+
+Remember: You are a forensic document analyst. Your analysis must be precise and exclude all government entities and media organizations."""
 
     def _call_claude_api(self, prompt: str) -> str:
         """Call the Claude API with the given prompt.
@@ -171,7 +186,7 @@ CRITICAL EXCLUSIONS:
             
             return message.content[0].text
         except Exception as e:
-            raise Exception(f"Claude API call failed: {e}") from e
+            raise ClaudeAPIError(f"Claude API call failed: {e}", cause=e) from e
 
     def _parse_response(self, article: Article, response: str) -> ArticleAnalysis:
         """Parse Claude's response into structured data.

@@ -4,10 +4,12 @@ import csv
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+import pytest
 
 from news_contribution_check.claude_analyzer import ArticleAnalysis, CompanyMention
 from news_contribution_check.csv_exporter import CSVExporter
 from news_contribution_check.config import get_timestamped_filename
+from news_contribution_check.exceptions import CSVExportError
 
 
 class TestCSVExporter:
@@ -251,11 +253,14 @@ class TestCSVExporter:
 
         # Mock open() to raise an exception
         with patch('builtins.open', side_effect=PermissionError("Access denied")):
-            try:
+            with pytest.raises(CSVExportError) as exc_info:
                 exporter.export_results(analyses)
-                assert False, "Should have raised ValueError"
-            except ValueError as e:
-                assert "Failed to export CSV" in str(e)
+            
+            error = exc_info.value
+            assert "Failed to export CSV" in str(error)
+            assert "Access denied" in str(error)
+            assert error.file_path is not None
+            assert error.cause is not None
 
     def test_timestamped_filename_generation(self) -> None:
         """Test that timestamped filenames are generated correctly."""

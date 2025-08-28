@@ -6,6 +6,7 @@ from typing import List
 
 from .claude_analyzer import ArticleAnalysis
 from .config import DEFAULT_CSV_FILENAME, DEFAULT_SUMMARY_FILENAME, get_timestamped_filename
+from .exceptions import CSVExportError
 
 
 class CSVExporter:
@@ -76,7 +77,7 @@ class CSVExporter:
             return output_path
 
         except Exception as e:
-            raise ValueError(f"Failed to export CSV: {e}") from e
+            raise CSVExportError(f"Failed to export CSV: {e}", file_path=str(output_path), cause=e) from e
 
     def _format_citation(self, publication_source: str, article_title: str) -> str:
         """Format citation according to specification.
@@ -151,4 +152,4 @@ class CSVExporter:
             return output_path
 
         except Exception as e:
-            raise ValueError(f"Failed to export summary statistics: {e}") from e
+            raise CSVExportError(f"Failed to export summary statistics: {e}", file_path=str(output_path), cause=e) from e

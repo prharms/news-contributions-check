@@ -50,12 +50,31 @@ class TestClaudeAnalyzer:
         
         prompt = analyzer._create_analysis_prompt(article)
         
+        # Check basic article information
         assert "Test Title" in prompt
         assert "Test Source" in prompt
         assert "2024-01-15" in prompt
         assert "Apple Inc. and Microsoft Corporation" in prompt
         assert "company_mentions" in prompt
         assert "JSON" in prompt
+        
+        # Check forensic analyst context
+        assert "forensic document analyst" in prompt
+        assert "documentary evidence in litigation" in prompt
+        assert "Zero creativity is allowed" in prompt
+        
+        # Check mandatory checklist
+        assert "MANDATORY CHECKLIST" in prompt
+        assert "NOT A CITY" in prompt
+        assert "NOT A COUNTY" in prompt
+        assert "NOT A STATE" in prompt
+        assert "NOT THE FEDERAL GOVERNMENT" in prompt
+        assert "NOT THE NAME OF A NEWSPAPER" in prompt
+        assert "NOT THE NAME OF OTHER NEWS MEDIA" in prompt
+        
+        # Check government entity exclusions
+        assert "government entities" in prompt
+        assert "cities, counties, states, federal agencies" in prompt
 
     @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_call_claude_api_success(self, mock_anthropic: Mock) -> None:

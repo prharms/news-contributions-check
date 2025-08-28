@@ -1,293 +1,305 @@
 """Tests for main module."""
 
-import tempfile
+import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
-from news_contribution_check.claude_analyzer import ArticleAnalysis, CompanyMention
-from news_contribution_check.document_processor import Article
 from news_contribution_check.main import main
+from news_contribution_check.orchestrator import ProcessingResult, ResultFiles, ProcessingSummary
 
 
 class TestMain:
-    """Test cases for main function."""
+    """Test cases for main module."""
 
-    def setup_method(self) -> None:
-        """Set up test fixtures."""
-        self.temp_data_dir = Path(tempfile.mkdtemp())
-        self.temp_output_dir = Path(tempfile.mkdtemp())
-
-    def teardown_method(self) -> None:
-        """Clean up test fixtures."""
-        import shutil
-        shutil.rmtree(self.temp_data_dir)
-        shutil.rmtree(self.temp_output_dir)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('news_contribution_check.main.ClaudeAnalyzer')
-    @patch('news_contribution_check.main.CSVExporter')
-    @patch('builtins.print')
-    def test_main_success(
-        self,
-        mock_print: Mock,
-        mock_csv_exporter: Mock,
-        mock_claude_analyzer: Mock,
-        mock_document_processor: Mock
-    ) -> None:
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_success(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
         """Test successful main execution."""
-        # Mock document processor
-        mock_doc_processor = Mock()
-        mock_articles = [
-            Article(
-                title="Test Article",
-                source="Test Source",
-                date="2024-01-15",
-                content="Test content",
-                raw_text="Raw text"
-            )
-        ]
-        mock_doc_processor.process_all_files.return_value = mock_articles
-        mock_doc_processor.find_docx_files.return_value = [Path("test.docx")]
-        mock_document_processor.return_value = mock_doc_processor
-
-        # Mock Claude analyzer
-        mock_analyzer = Mock()
-        mock_analyses = [
-            ArticleAnalysis(
-                article_title="Test Article",
-                publication_source="Test Source",
-                publication_date="2024-01-15",
-                company_mentions=[
-                    CompanyMention(company_name="Apple Inc.", description="Tech company")
-                ]
-            )
-        ]
-        mock_analyzer.analyze_articles.return_value = mock_analyses
-        mock_claude_analyzer.return_value = mock_analyzer
-
-        # Mock CSV exporter
-        mock_exporter = Mock()
-        mock_exporter.export_results.return_value = Path("output/results.csv")
-        mock_exporter.export_summary_stats.return_value = Path("output/summary.csv")
-        mock_csv_exporter.return_value = mock_exporter
-
-        # Run main function
-        main(
-            data_directory=str(self.temp_data_dir),
-            output_directory=str(self.temp_output_dir)
-        )
-
-        # Verify calls
-        mock_document_processor.assert_called_once_with(self.temp_data_dir)
-        mock_claude_analyzer.assert_called_once_with()
-        mock_csv_exporter.assert_called_once_with(self.temp_output_dir)
-
-        mock_doc_processor.process_all_files.assert_called_once()
-        mock_analyzer.analyze_articles.assert_called_once_with(mock_articles)
-        mock_exporter.export_results.assert_called_once_with(mock_analyses)
-        mock_exporter.export_summary_stats.assert_called_once_with(mock_analyses)
-
-        # Check that success messages were printed
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Processing Complete!" in call for call in print_calls)
-        assert any("Total articles processed: 1" in call for call in print_calls)
-        assert any("Total company mentions found: 1" in call for call in print_calls)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('builtins.print')
-    def test_main_no_articles(
-        self,
-        mock_print: Mock,
-        mock_document_processor: Mock
-    ) -> None:
-        """Test main execution with no articles found."""
-        # Mock document processor returning no articles
-        mock_doc_processor = Mock()
-        mock_doc_processor.process_all_files.return_value = []
-        mock_doc_processor.find_docx_files.return_value = []
-        mock_document_processor.return_value = mock_doc_processor
-
-        # Run main function
-        main(
-            data_directory=str(self.temp_data_dir),
-            output_directory=str(self.temp_output_dir)
-        )
-
-        # Verify that function returns early with no articles message
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("No articles found. Exiting." in call for call in print_calls)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('builtins.print')
-    def test_main_document_processor_failure(
-        self,
-        mock_print: Mock,
-        mock_document_processor: Mock
-    ) -> None:
-        """Test main execution with document processor failure."""
-        # Mock document processor raising exception
-        mock_doc_processor = Mock()
-        mock_doc_processor.process_all_files.side_effect = Exception("Document processing failed")
-        mock_document_processor.return_value = mock_doc_processor
-
-        # Run main function and expect SystemExit
-        with pytest.raises(SystemExit):
-            main(
-                data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir)
-            )
-
-        # Check error message was printed
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Error during processing: Document processing failed" in call for call in print_calls)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('news_contribution_check.main.ClaudeAnalyzer')
-    @patch('builtins.print')
-    def test_main_claude_analyzer_failure(
-        self,
-        mock_print: Mock,
-        mock_claude_analyzer: Mock,
-        mock_document_processor: Mock
-    ) -> None:
-        """Test main execution with Claude analyzer failure."""
-        # Mock document processor
-        mock_doc_processor = Mock()
-        mock_articles = [
-            Article(
-                title="Test Article",
-                source="Test Source",
-                date="2024-01-15",
-                content="Test content",
-                raw_text="Raw text"
-            )
-        ]
-        mock_doc_processor.process_all_files.return_value = mock_articles
-        mock_doc_processor.find_docx_files.return_value = [Path("test.docx")]
-        mock_document_processor.return_value = mock_doc_processor
-
-        # Mock Claude analyzer raising exception
-        mock_analyzer = Mock()
-        mock_analyzer.analyze_articles.side_effect = Exception("Claude analysis failed")
-        mock_claude_analyzer.return_value = mock_analyzer
-
-        # Run main function and expect SystemExit
-        with pytest.raises(SystemExit):
-            main(
-                data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir)
-            )
-
-        # Check error message was printed
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Error during processing: Claude analysis failed" in call for call in print_calls)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('news_contribution_check.main.ClaudeAnalyzer')
-    @patch('news_contribution_check.main.CSVExporter')
-    @patch('builtins.print')
-    def test_main_csv_exporter_failure(
-        self,
-        mock_print: Mock,
-        mock_csv_exporter: Mock,
-        mock_claude_analyzer: Mock,
-        mock_document_processor: Mock
-    ) -> None:
-        """Test main execution with CSV exporter failure."""
-        # Mock document processor
-        mock_doc_processor = Mock()
-        mock_articles = [
-            Article(
-                title="Test Article",
-                source="Test Source",
-                date="2024-01-15",
-                content="Test content",
-                raw_text="Raw text"
-            )
-        ]
-        mock_doc_processor.process_all_files.return_value = mock_articles
-        mock_doc_processor.find_docx_files.return_value = [Path("test.docx")]
-        mock_document_processor.return_value = mock_doc_processor
-
-        # Mock Claude analyzer
-        mock_analyzer = Mock()
-        mock_analyses = [
-            ArticleAnalysis(
-                article_title="Test Article",
-                publication_source="Test Source",
-                publication_date="2024-01-15",
-                company_mentions=[]
-            )
-        ]
-        mock_analyzer.analyze_articles.return_value = mock_analyses
-        mock_claude_analyzer.return_value = mock_analyzer
-
-        # Mock CSV exporter raising exception
-        mock_exporter = Mock()
-        mock_exporter.export_results.side_effect = Exception("CSV export failed")
-        mock_csv_exporter.return_value = mock_exporter
-
-        # Run main function and expect SystemExit
-        with pytest.raises(SystemExit):
-            main(
-                data_directory=str(self.temp_data_dir),
-                output_directory=str(self.temp_output_dir)
-            )
-
-        # Check error message was printed
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Error during processing: CSV export failed" in call for call in print_calls)
-
-    @patch('news_contribution_check.main.DocumentProcessor')
-    @patch('news_contribution_check.main.ClaudeAnalyzer')
-    @patch('news_contribution_check.main.CSVExporter')
-    @patch('builtins.print')
-    def test_main_with_default_parameters(
-        self,
-        mock_print: Mock,
-        mock_csv_exporter: Mock,
-        mock_claude_analyzer: Mock,
-        mock_document_processor: Mock
-    ) -> None:
-        """Test main execution with default parameters."""
-        # Mock all components for successful execution
-        mock_doc_processor = Mock()
-        mock_articles = [
-            Article(
-                title="Test Article",
-                source="Test Source",
-                date="2024-01-15",
-                content="Test content",
-                raw_text="Raw text"
-            )
-        ]
-        mock_doc_processor.process_all_files.return_value = mock_articles
-        mock_doc_processor.find_docx_files.return_value = [Path("test.docx")]
-        mock_document_processor.return_value = mock_doc_processor
-
-        mock_analyzer = Mock()
-        mock_analyses = [
-            ArticleAnalysis(
-                article_title="Test Article",
-                publication_source="Test Source",
-                publication_date="2024-01-15",
-                company_mentions=[]
-            )
-        ]
-        mock_analyzer.analyze_articles.return_value = mock_analyses
-        mock_claude_analyzer.return_value = mock_analyzer
-
-        mock_exporter = Mock()
-        mock_exporter.export_results.return_value = Path("output/results.csv")
-        mock_exporter.export_summary_stats.return_value = Path("output/summary.csv")
-        mock_csv_exporter.return_value = mock_exporter
-
-        # Run main function with defaults
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 5
+        mock_result.summary.articles_with_mentions = 3
+        mock_result.summary.total_mentions = 10
+        mock_result.summary.unique_companies = 7
+        mock_result.result_files.main_results = Path("output/results.csv")
+        mock_result.result_files.summary_stats = Path("output/summary.csv")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main
         main()
+        
+        # Verify orchestrator was created and called
+        mock_orchestrator_class.assert_called_once()
+        mock_orchestrator.process_news_articles.assert_called_once()
 
-        # Verify default parameters were used
-        mock_document_processor.assert_called_once_with(Path("data"))
-        mock_claude_analyzer.assert_called_once_with()  # Uses env var
-        mock_csv_exporter.assert_called_once_with(Path("output"))
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_no_articles(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with no articles."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 0
+        mock_result.summary.articles_with_mentions = 0
+        mock_result.summary.total_mentions = 0
+        mock_result.summary.unique_companies = 0
+        mock_result.result_files.main_results = Path("")
+        mock_result.result_files.summary_stats = Path("")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main
+        main()
+        
+        # Verify orchestrator was called
+        mock_orchestrator.process_news_articles.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_document_processor_failure(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with document processor failure."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_orchestrator.process_news_articles.side_effect = Exception("Document processing failed")
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main and expect it to exit
+        with pytest.raises(SystemExit):
+            main()
+        
+        # Verify orchestrator was called
+        mock_orchestrator.process_news_articles.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_claude_analyzer_failure(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with Claude analyzer failure."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_orchestrator.process_news_articles.side_effect = Exception("Claude analysis failed")
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main and expect it to exit
+        with pytest.raises(SystemExit):
+            main()
+        
+        # Verify orchestrator was called
+        mock_orchestrator.process_news_articles.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_csv_exporter_failure(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with CSV exporter failure."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_orchestrator.process_news_articles.side_effect = Exception("CSV export failed")
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main and expect it to exit
+        with pytest.raises(SystemExit):
+            main()
+        
+        # Verify orchestrator was called
+        mock_orchestrator.process_news_articles.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_with_default_parameters(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with default parameters."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 1
+        mock_result.summary.articles_with_mentions = 1
+        mock_result.summary.total_mentions = 1
+        mock_result.summary.unique_companies = 1
+        mock_result.result_files.main_results = Path("output/results.csv")
+        mock_result.result_files.summary_stats = Path("output/summary.csv")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main with default parameters
+        main(data_directory=None, output_directory=None)
+        
+        # Verify orchestrator was called with None values (which get converted to Path objects)
+        mock_orchestrator.process_news_articles.assert_called_once_with(None, None)
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_with_custom_parameters(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with custom parameters."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 1
+        mock_result.summary.articles_with_mentions = 1
+        mock_result.summary.total_mentions = 1
+        mock_result.summary.unique_companies = 1
+        mock_result.result_files.main_results = Path("custom/output/results.csv")
+        mock_result.result_files.summary_stats = Path("custom/output/summary.csv")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main with custom parameters
+        main(data_directory="/custom/data", output_directory="/custom/output")
+        
+        # Verify orchestrator was called with Path objects
+        mock_orchestrator.process_news_articles.assert_called_once_with(Path("/custom/data"), Path("/custom/output"))
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_unexpected_error(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test main execution with unexpected error."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_orchestrator.process_news_articles.side_effect = RuntimeError("Unexpected error")
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main and expect it to exit
+        with pytest.raises(SystemExit):
+            main()
+        
+        # Verify orchestrator was called
+        mock_orchestrator.process_news_articles.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_container_creation(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test that main creates container properly."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_container.get_document_processor.return_value = Mock()
+        mock_container.get_claude_analyzer.return_value = Mock()
+        mock_container.get_csv_exporter.return_value = Mock()
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 1
+        mock_result.summary.articles_with_mentions = 1
+        mock_result.summary.total_mentions = 1
+        mock_result.summary.unique_companies = 1
+        mock_result.result_files.main_results = Path("output/results.csv")
+        mock_result.result_files.summary_stats = Path("output/summary.csv")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main
+        main()
+        
+        # Verify container was created
+        mock_container_class.assert_called_once()
+        
+        # Verify container methods were called to get dependencies
+        mock_container.get_document_processor.assert_called_once()
+        mock_container.get_claude_analyzer.assert_called_once()
+        mock_container.get_csv_exporter.assert_called_once()
+
+    @patch('news_contribution_check.main.Container')
+    @patch('news_contribution_check.main.NewsContributionOrchestrator')
+    def test_main_orchestrator_creation(self, mock_orchestrator_class: Mock, mock_container_class: Mock) -> None:
+        """Test that main creates orchestrator with correct dependencies."""
+        # Mock container and orchestrator
+        mock_container = Mock()
+        mock_container.config = Mock()
+        mock_container.logger = Mock()
+        mock_document_processor = Mock()
+        mock_claude_analyzer = Mock()
+        mock_csv_exporter = Mock()
+        mock_container.get_document_processor.return_value = mock_document_processor
+        mock_container.get_claude_analyzer.return_value = mock_claude_analyzer
+        mock_container.get_csv_exporter.return_value = mock_csv_exporter
+        mock_container_class.return_value = mock_container
+        
+        mock_orchestrator = Mock()
+        mock_result = Mock()
+        mock_result.summary.total_articles = 1
+        mock_result.summary.articles_with_mentions = 1
+        mock_result.summary.total_mentions = 1
+        mock_result.summary.unique_companies = 1
+        mock_result.result_files.main_results = Path("output/results.csv")
+        mock_result.result_files.summary_stats = Path("output/summary.csv")
+        mock_orchestrator.process_news_articles.return_value = mock_result
+        mock_orchestrator_class.return_value = mock_orchestrator
+        
+        # Call main
+        main()
+        
+        # Verify orchestrator was created with correct dependencies
+        mock_orchestrator_class.assert_called_once_with(
+            document_processor=mock_document_processor,
+            claude_analyzer=mock_claude_analyzer,
+            csv_exporter=mock_csv_exporter,
+            logger=mock_container.logger,
+            config=mock_container.config,
+        )

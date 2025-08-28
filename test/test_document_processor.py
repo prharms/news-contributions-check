@@ -9,6 +9,7 @@ from docx import Document
 from docx.shared import Inches
 
 from news_contribution_check.document_processor import Article, DocumentProcessor
+from news_contribution_check.exceptions import DocumentProcessingError
 
 
 class TestDocumentProcessor:
@@ -129,7 +130,7 @@ class TestDocumentProcessor:
 
     def test_process_all_files_no_files(self) -> None:
         """Test processing with no .docx files raises error."""
-        with pytest.raises(ValueError, match="No .docx files found"):
+        with pytest.raises(DocumentProcessingError, match="No .docx files found"):
             self.processor.process_all_files()
 
     @patch('news_contribution_check.document_processor.Document')

@@ -13,6 +13,7 @@ from docx.text.paragraph import Paragraph
 from pydantic import BaseModel
 
 from .config import DEFAULT_DATE, DEFAULT_SOURCE
+from .exceptions import DocumentProcessingError
 
 
 class Article(BaseModel):
@@ -64,7 +65,11 @@ class DocumentProcessor:
             document = Document(file_path)
             return self._parse_document(document)
         except Exception as e:
-            raise ValueError(f"Error processing file {file_path}: {e}") from e
+            raise DocumentProcessingError(
+                f"Error processing file {file_path}: {e}",
+                file_path=str(file_path),
+                cause=e
+            ) from e
 
     def _parse_document(self, document: DocumentType) -> List[Article]:
         """Parse document and extract individual articles.
@@ -391,7 +396,10 @@ class DocumentProcessor:
         docx_files = self.find_docx_files()
 
         if not docx_files:
-            raise ValueError(f"No .docx files found in {self.data_directory}")
+            raise DocumentProcessingError(
+                f"No .docx files found in {self.data_directory}",
+                file_path=str(self.data_directory)
+            )
 
         all_articles = []
         for file_path in docx_files:

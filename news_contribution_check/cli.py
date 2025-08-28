@@ -1,8 +1,9 @@
 """Command-line interface for news contribution check."""
 
 import argparse
+from pathlib import Path
 
-from .config import DEFAULT_DATA_DIRECTORY, DEFAULT_OUTPUT_DIRECTORY
+from .config import AppConfig
 from .main import main
 
 
@@ -13,19 +14,29 @@ def cli() -> None:
     )
     parser.add_argument(
         "--data-dir",
-        default=DEFAULT_DATA_DIRECTORY,
-        help=f"Directory containing .docx files (default: {DEFAULT_DATA_DIRECTORY})",
+        help="Directory containing .docx files (default: from config)",
     )
     parser.add_argument(
         "--output-dir",
-        default=DEFAULT_OUTPUT_DIRECTORY,
-        help=f"Directory to save results (default: {DEFAULT_OUTPUT_DIRECTORY})",
+        help="Directory to save results (default: from config)",
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging",
     )
     args = parser.parse_args()
 
+    # Load config to get defaults
+    config = AppConfig()
+    
+    # Use provided arguments or config defaults
+    data_dir = args.data_dir or config.data_directory
+    output_dir = args.output_dir or config.output_directory
+
     main(
-        data_directory=args.data_dir,
-        output_directory=args.output_dir,
+        data_directory=data_dir,
+        output_directory=output_dir,
     )
 
 
