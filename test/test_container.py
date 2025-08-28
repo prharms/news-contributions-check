@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, ANY
 
 import pytest
 
@@ -45,8 +45,9 @@ class TestContainer:
             
             logger = container.logger
             assert logger.level == logging.INFO
-            assert len(logger.handlers) == 1
-            assert isinstance(logger.handlers[0], logging.StreamHandler)
+            assert len(logger.handlers) == 2  # Console and file handlers
+            assert any(isinstance(h, logging.StreamHandler) for h in logger.handlers)
+            assert any(isinstance(h, logging.FileHandler) for h in logger.handlers)
 
     def test_setup_logging_prevents_duplicate_handlers(self) -> None:
         """Test that _setup_logging prevents duplicate handlers."""
@@ -56,7 +57,7 @@ class TestContainer:
             
             # Both should use the same logger instance
             assert container1.logger is container2.logger
-            assert len(container1.logger.handlers) == 1
+            assert len(container1.logger.handlers) == 2  # Console and file handlers
 
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_get_claude_analyzer_creates_instance(self) -> None:
@@ -69,7 +70,7 @@ class TestContainer:
             analyzer = container.get_claude_analyzer()
             
             assert analyzer is mock_instance
-            mock_claude.assert_called_once_with(api_key='test-api-key')
+            mock_claude.assert_called_once_with(api_key='test-api-key', config=ANY)
 
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_get_claude_analyzer_caches_instance(self) -> None:
@@ -96,7 +97,7 @@ class TestContainer:
             processor = container.get_document_processor()
             
             assert processor is mock_instance
-            mock_processor.assert_called_once_with(Path("data"))
+            mock_processor.assert_called_once_with(Path("data"), config=ANY)
 
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_get_document_processor_with_custom_directory(self) -> None:
@@ -111,7 +112,7 @@ class TestContainer:
             processor = container.get_document_processor(custom_dir)
             
             assert processor is mock_instance
-            mock_processor.assert_called_once_with(custom_dir)
+            mock_processor.assert_called_once_with(custom_dir, config=ANY)
 
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_get_csv_exporter_creates_instance(self) -> None:

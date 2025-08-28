@@ -121,14 +121,3 @@ def get_timestamped_filename(base_name: str, extension: str = "csv") -> str:
     return f"{base_name}_{timestamp}.{extension}"
 
 
-# Legacy constants for backward compatibility
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
-CLAUDE_MAX_TOKENS = 2000
-CLAUDE_TEMPERATURE = 0.1
-DEFAULT_DATA_DIRECTORY = "data"
-DEFAULT_OUTPUT_DIRECTORY = "output"
-DEFAULT_CSV_FILENAME = "company_mentions.csv"
-DEFAULT_SUMMARY_FILENAME = "summary_stats.csv"
-MAX_DESCRIPTION_LENGTH = 300
-DEFAULT_DATE = "1900-01-01"
-DEFAULT_SOURCE = "Unknown Source"

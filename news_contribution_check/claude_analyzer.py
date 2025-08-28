@@ -8,7 +8,7 @@ import anthropic
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from .config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CLAUDE_TEMPERATURE, MAX_DESCRIPTION_LENGTH
+from .config import AppConfig
 from .exceptions import ClaudeAPIError
 from .document_processor import Article
 
@@ -17,9 +17,7 @@ class CompanyMention(BaseModel):
     """Represents a company or organization mention in an article."""
 
     company_name: str = Field(description="The exact name of the company or organization")
-    description: str = Field(
-        max_length=MAX_DESCRIPTION_LENGTH, description="Brief description of the company's role in the article"
-    )
+    description: str = Field(description="Brief description of the company's role in the article")
 
 
 class ArticleAnalysis(BaseModel):
@@ -34,26 +32,21 @@ class ArticleAnalysis(BaseModel):
 class ClaudeAnalyzer:
     """Analyzes articles using Claude API to extract company mentions."""
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str, config: Optional[AppConfig] = None) -> None:
         """Initialize the Claude analyzer.
 
         Args:
-            api_key: Anthropic API key. If None, loads from environment.
+            api_key: Anthropic API key
+            config: Application configuration. If None, creates default config.
 
         Raises:
-            ValueError: If API key is not provided or found in environment
+            ValueError: If API key is not provided
         """
-        if api_key is None:
-            load_dotenv()
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-
         if not api_key:
-            raise ValueError(
-                "Anthropic API key is required. "
-                "Set ANTHROPIC_API_KEY environment variable or provide api_key parameter."
-            )
+            raise ValueError("API key is required")
 
         self.client = anthropic.Anthropic(api_key=api_key)
+        self._config = config or AppConfig()
 
     def analyze_article(self, article: Article) -> ArticleAnalysis:
         """Analyze a single article to extract company mentions.
@@ -65,14 +58,43 @@ class ClaudeAnalyzer:
             Analysis results containing company mentions
 
         Raises:
-            ValueError: If analysis fails
+            ClaudeAPIError: If analysis fails
         """
         try:
+            import logging
+            logger = logging.getLogger("news_contribution_check.claude_analyzer")
+            
+            logger.debug(f"Starting analysis of article: {article.title[:50]}...", extra={
+                'operation': 'article_analysis',
+                'article_title': article.title,
+                'article_source': article.source,
+                'article_date': article.date
+            })
+            
             prompt = self._create_analysis_prompt(article)
             response = self._call_claude_api(prompt)
-            return self._parse_response(article, response)
+            result = self._parse_response(article, response)
+            
+            logger.info(f"Successfully analyzed article: {article.title[:50]}...", extra={
+                'operation': 'article_analysis',
+                'article_title': article.title,
+                'company_mentions_count': len(result.company_mentions),
+                'status': 'success'
+            })
+            
+            return result
         except Exception as e:
-            raise ValueError(f"Failed to analyze article '{article.title}': {e}") from e
+            import logging
+            logger = logging.getLogger("news_contribution_check.claude_analyzer")
+            logger.error(f"Failed to analyze article '{article.title}': {e}", extra={
+                'operation': 'article_analysis',
+                'article_title': article.title,
+                'article_source': article.source,
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
+            raise ClaudeAPIError(f"Failed to analyze article '{article.title}': {e}", cause=e) from e
 
     def analyze_articles(self, articles: List[Article]) -> List[ArticleAnalysis]:
         """Analyze multiple articles to extract company mentions.
@@ -83,14 +105,32 @@ class ClaudeAnalyzer:
         Returns:
             List of analysis results
         """
+        import logging
+        logger = logging.getLogger("news_contribution_check.claude_analyzer")
+        
+        logger.info(f"Starting batch analysis of {len(articles)} articles", extra={
+            'operation': 'batch_analysis',
+            'total_articles': len(articles)
+        })
+        
         results = []
+        successful_analyses = 0
+        failed_analyses = 0
+        
         for i, article in enumerate(articles, 1):
             try:
-                print(f"Analyzing article {i}/{len(articles)}: {article.title[:50]}...")
+                logger.info(f"Analyzing article {i}/{len(articles)}: {article.title[:50]}...")
                 analysis = self.analyze_article(article)
                 results.append(analysis)
+                successful_analyses += 1
             except Exception as e:
-                print(f"Warning: Failed to analyze article '{article.title}': {e}")
+                logger.warning(f"Failed to analyze article '{article.title}': {e}", extra={
+                    'operation': 'batch_analysis',
+                    'article_index': i,
+                    'article_title': article.title,
+                    'error_type': type(e).__name__,
+                    'error_message': str(e)
+                })
                 # Create empty analysis for failed articles
                 results.append(
                     ArticleAnalysis(
@@ -100,6 +140,16 @@ class ClaudeAnalyzer:
                         company_mentions=[],
                     )
                 )
+                failed_analyses += 1
+        
+        logger.info(f"Batch analysis completed: {successful_analyses} successful, {failed_analyses} failed", extra={
+            'operation': 'batch_analysis',
+            'total_articles': len(articles),
+            'successful_analyses': successful_analyses,
+            'failed_analyses': failed_analyses,
+            'success_rate': successful_analyses / len(articles) if articles else 0
+        })
+        
         return results
 
     def _create_analysis_prompt(self, article: Article) -> str:
@@ -174,9 +224,9 @@ Remember: You are a forensic document analyst. Your analysis must be precise and
         """
         try:
             message = self.client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=CLAUDE_MAX_TOKENS,
-                temperature=CLAUDE_TEMPERATURE,
+                model=self._config.api.model,
+                max_tokens=self._config.api.max_tokens,
+                temperature=self._config.api.temperature,
                 messages=[{"role": "user", "content": prompt}],
             )
             
@@ -228,8 +278,8 @@ Remember: You are a forensic document analyst. Your analysis must be precise and
                     continue
 
                 # Truncate description if too long
-                if len(description) > MAX_DESCRIPTION_LENGTH:
-                    description = description[:MAX_DESCRIPTION_LENGTH - 3] + "..."
+                if len(description) > self._config.max_description_length:
+                    description = description[:self._config.max_description_length - 3] + "..."
 
                 company_mentions.append(
                     CompanyMention(company_name=company_name, description=description)

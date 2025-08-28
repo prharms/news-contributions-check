@@ -12,7 +12,7 @@ from docx.table import _Cell, Table
 from docx.text.paragraph import Paragraph
 from pydantic import BaseModel
 
-from .config import DEFAULT_DATE, DEFAULT_SOURCE
+from .config import AppConfig
 from .exceptions import DocumentProcessingError
 
 
@@ -29,13 +29,15 @@ class Article(BaseModel):
 class DocumentProcessor:
     """Processes .docx documents to extract news articles."""
 
-    def __init__(self, data_directory: Path) -> None:
+    def __init__(self, data_directory: Path, config: Optional[AppConfig] = None) -> None:
         """Initialize the document processor.
 
         Args:
             data_directory: Path to directory containing .docx files
+            config: Application configuration. If None, creates default config.
         """
         self.data_directory = Path(data_directory)
+        self._config = config or AppConfig()
 
     def find_docx_files(self) -> List[Path]:
         """Find all .docx files in the data directory.
@@ -56,15 +58,45 @@ class DocumentProcessor:
 
         Raises:
             FileNotFoundError: If the file doesn't exist
-            ValueError: If the file cannot be processed
+            DocumentProcessingError: If the file cannot be processed
         """
+        import logging
+        logger = logging.getLogger("news_contribution_check.document_processor")
+        
+        logger.debug(f"Starting extraction from file: {file_path}", extra={
+            'operation': 'file_extraction',
+            'file_path': str(file_path)
+        })
+        
         if not file_path.exists():
+            logger.error(f"File not found: {file_path}", extra={
+                'operation': 'file_extraction',
+                'file_path': str(file_path),
+                'error_type': 'FileNotFoundError',
+                'status': 'error'
+            })
             raise FileNotFoundError(f"File not found: {file_path}")
 
         try:
             document = Document(file_path)
-            return self._parse_document(document)
+            articles = self._parse_document(document)
+            
+            logger.info(f"Successfully extracted {len(articles)} articles from {file_path}", extra={
+                'operation': 'file_extraction',
+                'file_path': str(file_path),
+                'articles_extracted': len(articles),
+                'status': 'success'
+            })
+            
+            return articles
         except Exception as e:
+            logger.error(f"Error processing file {file_path}: {e}", extra={
+                'operation': 'file_extraction',
+                'file_path': str(file_path),
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
             raise DocumentProcessingError(
                 f"Error processing file {file_path}: {e}",
                 file_path=str(file_path),
@@ -372,9 +404,9 @@ class DocumentProcessor:
 
         # Use fallback values if missing
         if not source:
-            source = DEFAULT_SOURCE
+            source = self._config.default_source
         if not date:
-            date = DEFAULT_DATE
+            date = self._config.default_date
 
         return Article(
             title=title.strip(),
@@ -391,23 +423,62 @@ class DocumentProcessor:
             List of all extracted articles from all files
 
         Raises:
-            ValueError: If no .docx files are found or processing fails
+            DocumentProcessingError: If no .docx files are found or processing fails
         """
+        import logging
+        logger = logging.getLogger("news_contribution_check.document_processor")
+        
+        logger.info(f"Starting batch processing of files in directory: {self.data_directory}", extra={
+            'operation': 'batch_processing',
+            'data_directory': str(self.data_directory)
+        })
+        
         docx_files = self.find_docx_files()
+        logger.info(f"Found {len(docx_files)} .docx files to process", extra={
+            'operation': 'batch_processing',
+            'files_found': len(docx_files)
+        })
 
         if not docx_files:
+            logger.error(f"No .docx files found in {self.data_directory}", extra={
+                'operation': 'batch_processing',
+                'data_directory': str(self.data_directory),
+                'error_type': 'NoFilesFound',
+                'status': 'error'
+            })
             raise DocumentProcessingError(
                 f"No .docx files found in {self.data_directory}",
                 file_path=str(self.data_directory)
             )
 
         all_articles = []
+        successful_files = 0
+        failed_files = 0
+        
         for file_path in docx_files:
             try:
+                logger.debug(f"Processing file: {file_path}")
                 articles = self.extract_articles_from_file(file_path)
                 all_articles.extend(articles)
+                successful_files += 1
+                logger.debug(f"Successfully processed {file_path}: {len(articles)} articles")
             except Exception as e:
-                print(f"Warning: Failed to process {file_path}: {e}")
+                logger.warning(f"Failed to process {file_path}: {e}", extra={
+                    'operation': 'batch_processing',
+                    'file_path': str(file_path),
+                    'error_type': type(e).__name__,
+                    'error_message': str(e)
+                })
+                failed_files += 1
                 continue
+
+        logger.info(f"Batch processing completed: {successful_files} successful, {failed_files} failed", extra={
+            'operation': 'batch_processing',
+            'total_files': len(docx_files),
+            'successful_files': successful_files,
+            'failed_files': failed_files,
+            'total_articles': len(all_articles),
+            'success_rate': successful_files / len(docx_files) if docx_files else 0
+        })
 
         return all_articles

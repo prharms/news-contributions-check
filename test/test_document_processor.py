@@ -10,6 +10,7 @@ from docx.shared import Inches
 
 from news_contribution_check.document_processor import Article, DocumentProcessor
 from news_contribution_check.exceptions import DocumentProcessingError
+from news_contribution_check.config import AppConfig
 
 
 class TestDocumentProcessor:
@@ -18,7 +19,7 @@ class TestDocumentProcessor:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.processor = DocumentProcessor(self.temp_dir)
+        self.processor = DocumentProcessor(self.temp_dir, config=AppConfig())
 
     def teardown_method(self) -> None:
         """Clean up test fixtures."""

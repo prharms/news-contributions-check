@@ -1,7 +1,7 @@
 """Tests for the orchestrator service."""
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, ANY
 
 import pytest
 
@@ -148,7 +148,7 @@ class TestNewsContributionOrchestrator:
             result = self.orchestrator.process_news_articles(data_dir, output_dir)
             
             # Verify new instances were created with correct directories
-            mock_processor_class.assert_called_once_with(data_dir)
+            mock_processor_class.assert_called_once_with(data_dir, config=ANY)
             mock_exporter_class.assert_called_once_with(output_dir)
 
     def test_extract_articles_success(self) -> None:
@@ -271,7 +271,7 @@ class TestNewsContributionOrchestrator:
         with pytest.raises(Exception, match="Unexpected error"):
             self.orchestrator.process_news_articles()
         
-        self.mock_logger.error.assert_called_with("News contribution analysis failed: Failed to extract articles: Unexpected error")
+        self.mock_logger.error.assert_called_with("News contribution analysis failed: Failed to extract articles: Unexpected error", extra=ANY)
 
 
 class TestProcessingResult:

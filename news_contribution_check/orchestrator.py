@@ -88,7 +88,12 @@ class NewsContributionOrchestrator:
             )
             
         except Exception as e:
-            self._logger.error(f"News contribution analysis failed: {e}")
+            self._logger.error(f"News contribution analysis failed: {e}", extra={
+                'operation': 'news_contribution_analysis',
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
             raise
     
     def _extract_articles(self, data_directory: Optional[Path]) -> List[Article]:
@@ -109,7 +114,7 @@ class NewsContributionOrchestrator:
             if data_directory:
                 # Create a new processor instance for the specified directory
                 from .document_processor import DocumentProcessor
-                processor = DocumentProcessor(data_directory)
+                processor = DocumentProcessor(data_directory, config=self._config)
                 articles = processor.process_all_files()
             else:
                 articles = self._document_processor.process_all_files()
@@ -118,6 +123,13 @@ class NewsContributionOrchestrator:
             return articles
             
         except Exception as e:
+            self._logger.error(f"Failed to extract articles: {e}", extra={
+                'operation': 'article_extraction',
+                'data_directory': str(data_directory) if data_directory else 'default',
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
             raise DocumentProcessingError(
                 f"Failed to extract articles: {e}",
                 cause=e
@@ -146,6 +158,13 @@ class NewsContributionOrchestrator:
             return analyses
             
         except Exception as e:
+            self._logger.error(f"Failed to analyze articles: {e}", extra={
+                'operation': 'article_analysis',
+                'total_articles': len(articles),
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
             raise ClaudeAPIError(
                 f"Failed to analyze articles: {e}",
                 cause=e

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from .claude_analyzer import ArticleAnalysis
-from .config import DEFAULT_CSV_FILENAME, DEFAULT_SUMMARY_FILENAME, get_timestamped_filename
+from .config import get_timestamped_filename
 from .exceptions import CSVExportError
 
 
@@ -34,11 +34,20 @@ class CSVExporter:
             Path to the created CSV file
 
         Raises:
-            ValueError: If export fails
+            CSVExportError: If export fails
         """
+        import logging
+        logger = logging.getLogger("news_contribution_check.csv_exporter")
+        
         if filename is None:
             filename = get_timestamped_filename("company_mentions")
         output_path = self.output_directory / filename
+
+        logger.info(f"Starting CSV export to: {output_path}", extra={
+            'operation': 'csv_export',
+            'output_path': str(output_path),
+            'total_analyses': len(analyses)
+        })
 
         try:
             with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
@@ -47,6 +56,7 @@ class CSVExporter:
 
                 writer.writeheader()
 
+                rows_written = 0
                 for analysis in analyses:
                     citation = self._format_citation(
                         analysis.publication_source, analysis.article_title
@@ -63,11 +73,25 @@ class CSVExporter:
                                     "Description": mention.description,
                                 }
                             )
+                            rows_written += 1
 
-            print(f"Results exported to: {output_path}")
+            logger.info(f"Successfully exported {rows_written} rows to: {output_path}", extra={
+                'operation': 'csv_export',
+                'output_path': str(output_path),
+                'rows_written': rows_written,
+                'status': 'success'
+            })
+            
             return output_path
 
         except Exception as e:
+            logger.error(f"Failed to export CSV to {output_path}: {e}", extra={
+                'operation': 'csv_export',
+                'output_path': str(output_path),
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'status': 'error'
+            })
             raise CSVExportError(f"Failed to export CSV: {e}", file_path=str(output_path), cause=e) from e
 
     def _format_citation(self, publication_source: str, article_title: str) -> str:

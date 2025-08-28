@@ -16,7 +16,7 @@ class TestClaudeAnalyzer:
     def test_initialization_with_env_var(self) -> None:
         """Test analyzer initialization with environment variable."""
         with patch('news_contribution_check.claude_analyzer.anthropic.Anthropic') as mock_anthropic:
-            analyzer = ClaudeAnalyzer()
+            analyzer = ClaudeAnalyzer(api_key='test-api-key')
             mock_anthropic.assert_called_once_with(api_key='test-api-key')
 
     def test_initialization_with_api_key(self) -> None:
@@ -32,8 +32,8 @@ class TestClaudeAnalyzer:
         """Test analyzer initialization without API key raises error."""
         # Mock load_dotenv to not load anything
         mock_load_dotenv.return_value = None
-        with pytest.raises(ValueError, match="Anthropic API key is required"):
-            ClaudeAnalyzer()
+        with pytest.raises(ValueError, match="API key is required"):
+            ClaudeAnalyzer(api_key="")
 
     @patch('news_contribution_check.claude_analyzer.anthropic.Anthropic')
     def test_create_analysis_prompt(self, mock_anthropic: Mock) -> None:
