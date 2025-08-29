@@ -272,7 +272,9 @@ class CFMatcher:
         try:
             json_start = text.find("{")
             json_end = text.rfind("}") + 1
-            data = json.loads(text[json_start:json_end]) if json_start >= 0 else {}
+            if json_start < 0 or json_end <= json_start:
+                raise ValueError("No JSON object found")
+            data = json.loads(text[json_start:json_end])
             decision = str(data.get("decision", "REVIEW")).upper()
             idx = int(data.get("index", 0))
             reason = str(data.get("reason", ""))

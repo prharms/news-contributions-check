@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import AppConfig
 from .logging_config import setup_logging, enable_debug_logging, enable_quiet_logging
 from .main import main
+from .container import Container
 
 
 def cli() -> None:
@@ -113,7 +114,6 @@ def cli() -> None:
 
     # Optional CF comparison
     if args.compare_to_cf:
-        from .container import Container
         container = Container()
         matcher = container.get_cf_matcher()
         try:
