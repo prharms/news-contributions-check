@@ -210,23 +210,43 @@ class CFMatcher:
     ) -> Tuple[str, List[str]]:
         # Build compact prompt with strict policy and schema
         lines = []
-        lines.append("You are a precise adjudicator. Temperature=0. Return JSON only.")
+        lines.append("You are a forensic document analyst. Temperature=0. Return JSON only.")
+        # Explicit task aligned to domain purpose
         lines.append(
-            "Rules: NEVER match media organizations, government entities, political parties/committees, or copyright holders."
+            "Task: Determine whether the company/organization mentioned in news coverage is the SAME ENTITY as a campaign contribution source — either as the contributor name or the contributor's employer."
         )
-        # Strengthen against generic-token matches
+        # Decision policy
         lines.append(
-            "Do not consider generic words (e.g., 'American', 'International', 'Global', 'National', 'Fund') as sufficient evidence."
+            "Decision policy: Return MATCH if the mention clearly refers to the same legal entity as one candidate's contributor name OR employer. Return NO_MATCH if overlap is only generic tokens or semantics differ. Return REVIEW if uncertain."
+        )
+        # Hard exclusions
+        lines.append(
+            "NEVER match media organizations, government entities, political parties/committees, or copyright holders."
+        )
+        # Guidance against generic tokens and weak overlaps
+        lines.append(
+            "Do not rely on generic words alone (e.g., 'American', 'International', 'National', 'Global', 'Group', 'Fund', 'Holding', 'Company', 'LLC', 'Inc', 'Corp'). Require distinctive overlap beyond these."
         )
         lines.append(
-            "Require distinctive overlap beyond generic tokens. A partial token overlap alone is NO_MATCH."
+            "Allow for legal suffix variations, common abbreviations, and known trade/parent-subsidiary relationships only if distinctive tokens align."
         )
-        lines.append("Company mention: " + mention_original)
+        # Example guidance
+        lines.append("Example: 'American Ireland Fund' vs 'American Cab' => NO_MATCH (only 'American' overlaps).")
+        lines.append("Example: 'American Ireland Fund' vs 'The Ireland Funds' => NO_MATCH (distinct entities despite token similarity).")
+        # Mention context
+        lines.append("Company mention (original): " + mention_original)
+        lines.append("Company mention (normalized): " + mention_normalized)
+        # Candidates with original and normalized fields
         lines.append("Candidates:")
         for i, c in enumerate(candidates, 1):
             rec = cf_records[c.index]
+            name_orig = rec['Contributor Name']
+            emp_orig = rec['Contributor Employer']
+            name_norm = self._normalize(name_orig)
+            emp_norm = self._normalize(emp_orig)
             lines.append(
-                f"{i}. name='{rec['Contributor Name']}', employer='{rec['Contributor Employer']}', "
+                f"{i}. name='" + name_orig.replace("'", "\'") + "' (norm='" + name_norm + "'), "
+                f"employer='" + emp_orig.replace("'", "\'") + "' (norm='" + emp_norm + "'), "
                 f"name_score={c.name_score}, employer_score={c.employer_score}"
             )
         lines.append(
