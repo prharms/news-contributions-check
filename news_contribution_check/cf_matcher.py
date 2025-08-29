@@ -78,33 +78,34 @@ class CFMatcher:
 
                 # Decide using thresholds
                 best = max(cand, key=lambda c: max(c.name_score, c.employer_score)) if cand else None
-                verdict_line: str
                 details: List[str] = []
 
                 if not cand:
-                    verdict_line = "No candidates above low threshold"
+                    # Nothing to write when fully rejected
+                    continue
                 else:
                     hi = self._config.compare.high_threshold
                     lo = self._config.compare.low_threshold
                     best_score = max(best.name_score, best.employer_score) if best else 0
 
-                    if best_score >= hi:
-                        verdict_line = self._format_accept(best, cf_records)
-                    elif best_score <= lo:
-                        verdict_line = "Rejected by fuzzy gate"
-                    else:
-                        # Gray band → Haiku adjudication
-                        verdict_line, details = self._llm_adjudicate(
-                            original, normalized, cand, cf_records
-                        )
+                    if best_score <= lo:
+                        # Suppress rejected entries
+                        continue
 
-                # Write report entry
-                f.write(f"Mention: {original}\n")
-                f.write(f"Decision: {verdict_line}\n")
-                if details:
-                    for d in details:
-                        f.write(f" - {d}\n")
-                f.write("\n")
+                    # For gray band and high band, use Haiku to confirm to avoid generic-token matches
+                    decision, details = self._llm_adjudicate(
+                        original, normalized, cand, cf_records
+                    )
+                    if decision.startswith("NO_MATCH"):
+                        # Suppress LLM no-match entries
+                        continue
+                    if decision.startswith("ACCEPT") or decision.startswith("REVIEW"):
+                        f.write(f"Mention: {original}\n")
+                        f.write(f"Decision: {decision}\n")
+                        if details:
+                            for d in details:
+                                f.write(f" - {d}\n")
+                        f.write("\n")
 
         self._logger.info(f"CF comparison completed. Report: {report_path}")
         return report_path
@@ -212,6 +213,13 @@ class CFMatcher:
         lines.append("You are a precise adjudicator. Temperature=0. Return JSON only.")
         lines.append(
             "Rules: NEVER match media organizations, government entities, political parties/committees, or copyright holders."
+        )
+        # Strengthen against generic-token matches
+        lines.append(
+            "Do not consider generic words (e.g., 'American', 'International', 'Global', 'National', 'Fund') as sufficient evidence."
+        )
+        lines.append(
+            "Require distinctive overlap beyond generic tokens. A partial token overlap alone is NO_MATCH."
         )
         lines.append("Company mention: " + mention_original)
         lines.append("Candidates:")

@@ -58,7 +58,7 @@ class CompareConfig:
     cf_model: str = "claude-3-5-haiku-20241022"  # Haiku 3.5 per Anthropic docs
     top_k: int = 5
     low_threshold: int = 62
-    high_threshold: int = 90
+    high_threshold: int = 93
 
 
 class AppConfig:
