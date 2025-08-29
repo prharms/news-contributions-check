@@ -95,7 +95,7 @@ class TestNewsContributionOrchestrator:
         
         # Verify logging
         self.mock_logger.info.assert_any_call("Starting news contribution analysis")
-        self.mock_logger.info.assert_any_call("Extracting articles from documents")
+        self.mock_logger.info.assert_any_call("Extracting articles from document")
         self.mock_logger.info.assert_any_call("Extracted 2 articles")
         self.mock_logger.info.assert_any_call("Analyzing 2 articles with Claude AI")
         self.mock_logger.info.assert_any_call("Analysis complete. Found 1 company mentions")
@@ -111,9 +111,9 @@ class TestNewsContributionOrchestrator:
         assert result == ProcessingResult.empty()
         self.mock_logger.warning.assert_called_with("No articles found to process")
 
-    def test_process_news_articles_with_custom_directories(self) -> None:
-        """Test processing with custom data and output directories."""
-        data_dir = Path("/custom/data")
+    def test_process_news_articles_with_custom_file(self) -> None:
+        """Test processing with a specific file path."""
+        file_path = Path("/custom/data/testfile.docx")
         output_dir = Path("/custom/output")
         
         articles = [Article(title="Test", source="Source", date="2024-01-01", content="Content", raw_text="Raw")]
@@ -126,18 +126,13 @@ class TestNewsContributionOrchestrator:
             )
         ]
         
-        self.mock_document_processor.process_all_files.return_value = articles
-        self.mock_claude_analyzer.analyze_articles.return_value = analyses
-        self.mock_csv_exporter.export_results.return_value = Path("output/results.csv")
-        self.mock_csv_exporter.export_summary_stats.return_value = Path("output/summary.csv")
-        
-        # For custom directories, the orchestrator creates new instances internally
+        # For custom file path, the orchestrator creates new instances internally
         # We need to mock the imports inside the methods where they're used
         with patch('news_contribution_check.document_processor.DocumentProcessor') as mock_processor_class, \
              patch('news_contribution_check.csv_exporter.CSVExporter') as mock_exporter_class:
             
             mock_processor_instance = Mock()
-            mock_processor_instance.process_all_files.return_value = articles
+            mock_processor_instance.extract_articles_from_file.return_value = articles
             mock_processor_class.return_value = mock_processor_instance
             
             mock_exporter_instance = Mock()
@@ -145,10 +140,13 @@ class TestNewsContributionOrchestrator:
             mock_exporter_instance.export_summary_stats.return_value = Path("output/summary.csv")
             mock_exporter_class.return_value = mock_exporter_instance
             
-            result = self.orchestrator.process_news_articles(data_dir, output_dir)
+            self.mock_claude_analyzer.analyze_articles.return_value = analyses
             
-            # Verify new instances were created with correct directories
-            mock_processor_class.assert_called_once_with(data_dir, config=ANY)
+            result = self.orchestrator.process_news_articles(file_path, output_dir)
+            
+            # Verify new instances were created with correct paths
+            mock_processor_class.assert_called_once_with(file_path.parent, config=ANY)
+            mock_processor_instance.extract_articles_from_file.assert_called_once_with(file_path)
             mock_exporter_class.assert_called_once_with(output_dir)
 
     def test_extract_articles_success(self) -> None:

@@ -25,6 +25,7 @@ dependencies = [
     "python-dotenv==1.0.0",
     "pandas==2.1.4",
     "pydantic>=2.7.0",
+    "rapidfuzz>=3.9.3",
 ]
 
 [project.scripts]

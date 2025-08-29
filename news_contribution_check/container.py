@@ -12,6 +12,7 @@ from .config import AppConfig
 from .csv_exporter import CSVExporter
 from .document_processor import DocumentProcessor
 from .logging_config import setup_logging
+from .cf_matcher import CFMatcher
 
 
 class Container:
@@ -28,6 +29,7 @@ class Container:
         self._claude_analyzer: Optional[ClaudeAnalyzer] = None
         self._document_processor: Optional[DocumentProcessor] = None
         self._csv_exporter: Optional[CSVExporter] = None
+        self._cf_matcher: Optional[CFMatcher] = None
     
     def _load_config(self) -> AppConfig:
         """Load configuration from environment variables."""
@@ -73,16 +75,15 @@ class Container:
                 raise
         return self._claude_analyzer
     
-    def get_document_processor(self, data_directory: Optional[Path] = None) -> DocumentProcessor:
+    def get_document_processor(self) -> DocumentProcessor:
         """Get or create document processor instance.
         
-        Args:
-            data_directory: Directory containing .docx files. If None, uses config default.
+        Returns:
+            DocumentProcessor instance configured with default data directory.
         """
         if self._document_processor is None:
             try:
-                if data_directory is None:
-                    data_directory = Path(self._config.data_directory)
+                data_directory = Path(self._config.data_directory)
                 
                 self._logger.debug(f"Creating new DocumentProcessor instance for directory: {data_directory}")
                 self._document_processor = DocumentProcessor(data_directory, config=self._config)
@@ -130,9 +131,31 @@ class Container:
                 })
                 raise
         return self._csv_exporter
+
+    def get_cf_matcher(self) -> CFMatcher:
+        """Get or create the CF matcher instance."""
+        if self._cf_matcher is None:
+            try:
+                api_key = self._config.get_api_key()
+                self._logger.debug("Creating new CFMatcher instance")
+                self._cf_matcher = CFMatcher(api_key=api_key, config=self._config, logger=self._logger)
+                self._logger.info("CFMatcher instance created successfully", extra={
+                    'operation': 'cf_matcher_creation',
+                    'status': 'success'
+                })
+            except Exception as e:
+                self._logger.error("Failed to create CFMatcher instance", extra={
+                    'operation': 'cf_matcher_creation',
+                    'status': 'error',
+                    'error_type': type(e).__name__,
+                    'error_message': str(e)
+                })
+                raise
+        return self._cf_matcher
     
     def reset(self) -> None:
         """Reset all cached instances (useful for testing)."""
         self._claude_analyzer = None
         self._document_processor = None
         self._csv_exporter = None
+        self._cf_matcher = None

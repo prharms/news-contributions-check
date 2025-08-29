@@ -100,21 +100,6 @@ class TestContainer:
             mock_processor.assert_called_once_with(Path("data"), config=ANY)
 
     @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
-    def test_get_document_processor_with_custom_directory(self) -> None:
-        """Test that get_document_processor uses custom directory."""
-        custom_dir = Path("/custom/data")
-        
-        with patch('news_contribution_check.container.DocumentProcessor') as mock_processor:
-            mock_instance = Mock()
-            mock_processor.return_value = mock_instance
-            
-            container = Container()
-            processor = container.get_document_processor(custom_dir)
-            
-            assert processor is mock_instance
-            mock_processor.assert_called_once_with(custom_dir, config=ANY)
-
-    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'test-api-key'})
     def test_get_csv_exporter_creates_instance(self) -> None:
         """Test that get_csv_exporter creates a CSVExporter instance."""
         with patch('news_contribution_check.container.CSVExporter') as mock_exporter:

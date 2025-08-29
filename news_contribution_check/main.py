@@ -10,13 +10,13 @@ from .orchestrator import NewsContributionOrchestrator
 
 
 def main(
-    data_directory: str = None,
+    file_path: str = None,
     output_directory: str = None,
 ) -> None:
     """Main function to process news articles and extract company mentions.
 
     Args:
-        data_directory: Directory containing .docx files. If None, uses config default.
+        file_path: Path to specific .docx file to process. If None, uses config default.
         output_directory: Directory to save results. If None, uses config default.
 
     Raises:
@@ -30,12 +30,12 @@ def main(
         container = Container()
         
         # Convert string paths to Path objects if provided
-        data_path = Path(data_directory) if data_directory else None
+        file_path_obj = Path(file_path) if file_path else None
         output_path = Path(output_directory) if output_directory else None
         
         # Create orchestrator with dependencies from container
         orchestrator = NewsContributionOrchestrator(
-            document_processor=container.get_document_processor(data_path),
+            document_processor=container.get_document_processor(),
             claude_analyzer=container.get_claude_analyzer(),
             csv_exporter=container.get_csv_exporter(output_path),
             logger=container.logger,
@@ -43,10 +43,12 @@ def main(
         )
 
         # Process news articles
-        result = orchestrator.process_news_articles(data_path, output_path)
+        result = orchestrator.process_news_articles(file_path_obj, output_path)
 
         # Print results
         _print_processing_results(result)
+
+        return result
 
     except NewsContributionCheckError as e:
         print(f"Error during processing: {e}")

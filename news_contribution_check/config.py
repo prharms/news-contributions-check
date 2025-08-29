@@ -50,6 +50,17 @@ class ProcessingConfig:
             return False
 
 
+@dataclass
+class CompareConfig:
+    """Configuration for campaign finance comparison."""
+    
+    enabled: bool = False
+    cf_model: str = "claude-3-5-haiku-20241022"  # Haiku 3.5 per Anthropic docs
+    top_k: int = 5
+    low_threshold: int = 62
+    high_threshold: int = 90
+
+
 class AppConfig:
     """Main application configuration that combines all settings."""
     
@@ -57,12 +68,14 @@ class AppConfig:
         """Initialize configuration with default values."""
         self.api = APIConfig()
         self.processing = ProcessingConfig()
+        self.compare = CompareConfig()
         self._validate()
     
     def _validate(self) -> None:
         """Validate all configuration sections."""
         self.api.validate()
         self.processing.validate()
+        # no strict validation for compare beyond bounds
     
     def get_api_key(self) -> str:
         """Get API key from environment variables.

@@ -43,13 +43,13 @@ class NewsContributionOrchestrator:
     
     def process_news_articles(
         self,
-        data_directory: Optional[Path] = None,
+        file_path: Optional[Path] = None,
         output_directory: Optional[Path] = None,
     ) -> "ProcessingResult":
         """Process news articles and extract company mentions.
         
         Args:
-            data_directory: Directory containing .docx files. If None, uses config default.
+            file_path: Path to specific .docx file to process. If None, uses config default.
             output_directory: Directory to save results. If None, uses config default.
             
         Returns:
@@ -63,8 +63,8 @@ class NewsContributionOrchestrator:
         try:
             self._logger.info("Starting news contribution analysis")
             
-            # Step 1: Extract articles from documents
-            articles = self._extract_articles(data_directory)
+            # Step 1: Extract articles from document
+            articles = self._extract_articles(file_path)
             if not articles:
                 self._logger.warning("No articles found to process")
                 return ProcessingResult.empty()
@@ -96,11 +96,11 @@ class NewsContributionOrchestrator:
             })
             raise
     
-    def _extract_articles(self, data_directory: Optional[Path]) -> List[Article]:
-        """Extract articles from .docx files.
+    def _extract_articles(self, file_path: Optional[Path]) -> List[Article]:
+        """Extract articles from a single .docx file.
         
         Args:
-            data_directory: Directory containing .docx files
+            file_path: Path to specific .docx file to process
             
         Returns:
             List of extracted articles
@@ -109,14 +109,15 @@ class NewsContributionOrchestrator:
             DocumentProcessingError: If extraction fails
         """
         try:
-            self._logger.info("Extracting articles from documents")
+            self._logger.info("Extracting articles from document")
             
-            if data_directory:
-                # Create a new processor instance for the specified directory
+            if file_path:
+                # Create a new processor instance for the specified file
                 from .document_processor import DocumentProcessor
-                processor = DocumentProcessor(data_directory, config=self._config)
-                articles = processor.process_all_files()
+                processor = DocumentProcessor(file_path.parent, config=self._config)
+                articles = processor.extract_articles_from_file(file_path)
             else:
+                # Use default processor to process all files
                 articles = self._document_processor.process_all_files()
             
             self._logger.info(f"Extracted {len(articles)} articles")
@@ -125,7 +126,7 @@ class NewsContributionOrchestrator:
         except Exception as e:
             self._logger.error(f"Failed to extract articles: {e}", extra={
                 'operation': 'article_extraction',
-                'data_directory': str(data_directory) if data_directory else 'default',
+                'file_path': str(file_path) if file_path else 'default',
                 'error_type': type(e).__name__,
                 'error_message': str(e),
                 'status': 'error'

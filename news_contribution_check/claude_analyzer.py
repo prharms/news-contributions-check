@@ -181,6 +181,9 @@ MANDATORY CHECKLIST - Before returning any value as a company/organization name,
 (D) NOT THE FEDERAL GOVERNMENT
 (E) NOT THE NAME OF A NEWSPAPER
 (F) NOT THE NAME OF OTHER NEWS MEDIA
+(G) NOT THE NAME OF A NEWS ORGANIZATION
+(H) NOT THE COPYRIGHT HOLDER LISTED IN THE ARTICLE'S COPYRIGHT INFORMATION
+(I) NOT A POLITICAL PARTY OR POLITICAL COMMITTEE (e.g., "Democratic Party", "Republican Party", "Labour Party")
 
 If ANY of these conditions are true, DO NOT include the entity as a company/organization name.
 
@@ -206,9 +209,10 @@ CRITICAL EXCLUSIONS - NEVER include:
 - Other news media outlets as companies unless they are the actual subject of the story (not just cited as sources)
 - The author's name or byline information
 - Any government entities (cities, counties, states, federal agencies)
+- Political parties or their committees (e.g., "Democratic Party", "Republican Party")
 - Focus only on private sector organizations that are subjects of the news story, not sources reporting it
 
-Remember: You are a forensic document analyst. Your analysis must be precise and exclude all government entities and media organizations."""
+Remember: You are a forensic document analyst. Your analysis must be precise and exclude all government entities, media organizations, and political parties."""
 
     def _call_claude_api(self, prompt: str) -> str:
         """Call the Claude API with the given prompt.
@@ -266,7 +270,37 @@ Remember: You are a forensic document analyst. Your analysis must be precise and
             if "company_mentions" not in data:
                 raise ValueError("Missing 'company_mentions' in response")
 
-            company_mentions = []
+            def _is_political_party(name: str) -> bool:
+                n = name.strip().lower()
+                if not n:
+                    return False
+                known = {
+                    "democratic party",
+                    "republican party",
+                    "libertarian party",
+                    "green party",
+                    "labour party",
+                    "conservative party",
+                    "socialist party",
+                    "communist party",
+                    "people's party",
+                    "national party",
+                }
+                if n in known:
+                    return True
+                if n.endswith(" party"):
+                    return True
+                # Common shorthand
+                if n in {"democrats", "republicans"}:
+                    return True
+                return False
+
+            def _is_copyright_holder(description: str) -> bool:
+                d = (description or "").lower()
+                triggers = ["copyright", "©", "all rights reserved", "rights to the article"]
+                return any(t in d for t in triggers)
+
+            company_mentions: List[CompanyMention] = []
             for mention_data in data["company_mentions"]:
                 if not isinstance(mention_data, dict):
                     continue
@@ -275,6 +309,15 @@ Remember: You are a forensic document analyst. Your analysis must be precise and
                 description = mention_data.get("description", "").strip()
 
                 if not company_name:
+                    continue
+
+                # Enforce critical exclusions at parse-time
+                if company_name.strip().lower() == (article.source or "").strip().lower():
+                    # Exclude the publication itself
+                    continue
+                if _is_political_party(company_name):
+                    continue
+                if _is_copyright_holder(description):
                     continue
 
                 # Truncate description if too long

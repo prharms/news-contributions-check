@@ -171,7 +171,7 @@ class TestMain:
         mock_orchestrator_class.return_value = mock_orchestrator
         
         # Call main with default parameters
-        main(data_directory=None, output_directory=None)
+        main(file_path=None, output_directory=None)
         
         # Verify orchestrator was called with None values (which get converted to Path objects)
         mock_orchestrator.process_news_articles.assert_called_once_with(None, None)
@@ -201,10 +201,10 @@ class TestMain:
         mock_orchestrator_class.return_value = mock_orchestrator
         
         # Call main with custom parameters
-        main(data_directory="/custom/data", output_directory="/custom/output")
+        main(file_path="/custom/data/testfile.docx", output_directory="/custom/output")
         
         # Verify orchestrator was called with Path objects
-        mock_orchestrator.process_news_articles.assert_called_once_with(Path("/custom/data"), Path("/custom/output"))
+        mock_orchestrator.process_news_articles.assert_called_once_with(Path("/custom/data/testfile.docx"), Path("/custom/output"))
 
     @patch('news_contribution_check.main.Container')
     @patch('news_contribution_check.main.NewsContributionOrchestrator')
